@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/presentation/interior_builder.gd" id="1_interior"]
+
+[node name="Interior" type="Node3D"]
+script = ExtResource("1_interior")
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+
+[node name="Room" type="Node3D" parent="."]
+
+[node name="Furniture" type="Node3D" parent="."]
+
+[node name="InteractionPoints" type="Node3D" parent="."]
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+
+[node name="ExteriorExit" type="Marker3D" parent="."]
