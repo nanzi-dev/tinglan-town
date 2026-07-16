@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/actors/needs_component.gd" id="1_needs"]
 [ext_resource type="Script" path="res://scripts/actors/schedule_component.gd" id="2_schedule"]
+[ext_resource type="Script" path="res://scripts/presentation/speech_bubble.gd" id="3_bubble"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape_npc"]
 radius = 0.4
@@ -38,3 +39,18 @@ script = ExtResource("1_needs")
 
 [node name="ScheduleComponent" type="Node" parent="."]
 script = ExtResource("2_schedule")
+
+[node name="SpeechBubble" type="Label3D" parent="."]
+unique_name_in_owner = true
+visible = false
+position = Vector3(0, 2.15, 0)
+billboard = 1
+fixed_size = true
+no_depth_test = true
+modulate = Color(0.957, 0.945, 0.91, 1)
+outline_modulate = Color(0.129, 0.188, 0.176, 1)
+font_size = 24
+outline_size = 8
+text = "居民\n正在交谈"
+horizontal_alignment = 1
+script = ExtResource("3_bubble")

@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/task_board_panel.tscn" id="2_task_board"]
 [ext_resource type="PackedScene" path="res://scenes/ui/relationship_panel.tscn" id="3_relationship"]
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory_panel.tscn" id="4_inventory"]
+[ext_resource type="PackedScene" path="res://scenes/ui/conversation_panel.tscn" id="5_conversation"]
 
 [node name="HUD" type="CanvasLayer"]
 process_mode = 3
@@ -208,4 +209,7 @@ visible = false
 visible = false
 
 [node name="InventoryPanel" parent="Root" instance=ExtResource("4_inventory")]
+visible = false
+
+[node name="ConversationPanel" parent="Root" instance=ExtResource("5_conversation")]
 visible = false

@@ -14,6 +14,7 @@ const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
 @onready var _task_board_panel: TaskBoardPanel = %TaskBoardPanel
 @onready var _relationship_panel: RelationshipPanel = %RelationshipPanel
 @onready var _inventory_panel: InventoryPanel = %InventoryPanel
+@onready var _conversation_panel: ConversationPanel = %ConversationPanel
 @onready var _task_button: Button = %TaskButton
 @onready var _relationship_button: Button = %RelationshipButton
 @onready var _inventory_button: Button = %InventoryButton
@@ -25,6 +26,7 @@ var _paused := false
 var _owns_tree_pause := false
 var _task_board := TaskBoard.new()
 var _relationship_ledger := RelationshipLedger.new()
+var _conversation_manager := ConversationManager.new()
 
 
 func _ready() -> void:
@@ -36,6 +38,7 @@ func _ready() -> void:
 	_task_board_panel.close_requested.connect(_hide_overlays)
 	_relationship_panel.close_requested.connect(_hide_overlays)
 	_inventory_panel.close_requested.connect(_hide_overlays)
+	_conversation_panel.close_requested.connect(_hide_overlays)
 	_task_board_panel.task_published.connect(_on_task_published)
 	update_status({
 		"season": "春季",
@@ -105,6 +108,26 @@ func set_inventory(items: Array) -> void:
 			label.text = "空位"
 
 
+func start_npc_conversation(
+	participant_ids: Array,
+	location_name: String,
+) -> Dictionary:
+	var context := _conversation_manager.start_npc_conversation(
+		participant_ids,
+		location_name,
+	)
+	if context.is_empty():
+		return {}
+	_show_only(_conversation_panel)
+	if not _conversation_panel.open_conversation(
+		_conversation_manager,
+		context["conversation_id"],
+	):
+		_hide_overlays()
+		return {}
+	return context
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause_game"):
 		_paused = not _paused
@@ -137,15 +160,19 @@ func _show_only(panel: Control) -> void:
 		_task_board_panel,
 		_relationship_panel,
 		_inventory_panel,
+		_conversation_panel,
 	]:
 		overlay.visible = overlay == panel
-	panel.grab_focus()
+	var default_focus := panel.get_node_or_null("%CloseButton") as Control
+	if default_focus != null:
+		default_focus.grab_focus()
 
 
 func _hide_overlays() -> void:
 	_task_board_panel.visible = false
 	_relationship_panel.visible = false
 	_inventory_panel.visible = false
+	_conversation_panel.visible = false
 
 
 func _on_task_published(task: Dictionary) -> void:
