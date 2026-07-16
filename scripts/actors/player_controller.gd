@@ -3,6 +3,7 @@ extends CharacterBody3D
 
 @export var move_speed := 6.0
 @export var path_arrival_distance := 0.25
+@export var navigation_tolerance := 0.06
 
 @onready var _navigation_agent: NavigationAgent3D = $NavigationAgent3D
 
@@ -31,7 +32,7 @@ func _physics_process(_delta: float) -> void:
 		_update_path_velocity()
 	else:
 		velocity = Vector3.ZERO
-	move_and_slide()
+	_move_and_constrain_to_navigation()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -109,3 +110,23 @@ func _update_path_velocity() -> void:
 		velocity = Vector3.ZERO
 		return
 	velocity = direction.normalized() * move_speed
+
+
+func _move_and_constrain_to_navigation() -> void:
+	var previous_position := global_position
+	move_and_slide()
+	var navigation_map := get_world_3d().navigation_map
+	if NavigationServer3D.map_get_iteration_id(navigation_map) == 0:
+		return
+	var closest_point := NavigationServer3D.map_get_closest_point(
+		navigation_map,
+		global_position,
+	)
+	var horizontal_distance := Vector2(
+		closest_point.x,
+		closest_point.z,
+	).distance_to(Vector2(global_position.x, global_position.z))
+	if horizontal_distance <= navigation_tolerance:
+		return
+	global_position = previous_position
+	velocity = Vector3.ZERO

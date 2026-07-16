@@ -12,7 +12,17 @@ const BRIDGE_IDS := [
 ]
 const RIVER_ROTATION_DEGREES := 18.0
 const NAVIGATION_RIVER_HALF_WIDTH := 3.75
+const NAVIGATION_CELL_SIZE := 0.5
+const NAVIGATION_MIN := Vector2(-24.0, -18.0)
+const NAVIGATION_MAX := Vector2(24.0, 18.0)
+const NAVIGATION_BUILDING_MARGIN := 0.45
+const BUILDING_HALF_SIZE := Vector2(2.25, 1.9)
+const BRIDGE_HALF_LENGTH := 4.5
 const BRIDGE_HALF_DEPTH := 1.3
+const BRIDGE_LAYOUT := {
+	"tingyu_bridge": -7.0,
+	"south_market_bridge": 7.0,
+}
 const ENTRANCE_LAYOUT := {
 	"player_home": Vector3(-17.0, 0.0, -10.0),
 	"shen_home": Vector3(-10.0, 0.0, -11.0),
@@ -111,32 +121,37 @@ func _build_navigation() -> void:
 	_navigation_vertex_indices.clear()
 	_navigation_polygons.clear()
 
-	for segment in [
-		{"z_range": Vector2(-18.0, -7.0 - BRIDGE_HALF_DEPTH), "bridge": false},
-		{
-			"z_range": Vector2(
-				-7.0 - BRIDGE_HALF_DEPTH,
-				-7.0 + BRIDGE_HALF_DEPTH,
-			),
-			"bridge": true,
-		},
-		{
-			"z_range": Vector2(
-				-7.0 + BRIDGE_HALF_DEPTH,
-				7.0 - BRIDGE_HALF_DEPTH,
-			),
-			"bridge": false,
-		},
-		{
-			"z_range": Vector2(
-				7.0 - BRIDGE_HALF_DEPTH,
-				7.0 + BRIDGE_HALF_DEPTH,
-			),
-			"bridge": true,
-		},
-		{"z_range": Vector2(7.0 + BRIDGE_HALF_DEPTH, 18.0), "bridge": false},
-	]:
-		_add_navigation_segment(segment.z_range, segment.bridge)
+	var column_count := roundi(
+		(NAVIGATION_MAX.x - NAVIGATION_MIN.x) / NAVIGATION_CELL_SIZE,
+	)
+	var row_count := roundi(
+		(NAVIGATION_MAX.y - NAVIGATION_MIN.y) / NAVIGATION_CELL_SIZE,
+	)
+	for row in range(row_count):
+		for column in range(column_count):
+			var north_west := NAVIGATION_MIN + Vector2(
+				column * NAVIGATION_CELL_SIZE,
+				row * NAVIGATION_CELL_SIZE,
+			)
+			var north_east := north_west + Vector2(NAVIGATION_CELL_SIZE, 0.0)
+			var south_east := north_west + Vector2(
+				NAVIGATION_CELL_SIZE,
+				NAVIGATION_CELL_SIZE,
+			)
+			var south_west := north_west + Vector2(0.0, NAVIGATION_CELL_SIZE)
+			var corners: Array[Vector2] = [
+				north_west,
+				north_east,
+				south_east,
+				south_west,
+			]
+			if _navigation_cell_is_allowed(corners):
+				_add_navigation_quad(
+					north_west,
+					north_east,
+					south_east,
+					south_west,
+				)
 
 	var navigation_mesh := NavigationMesh.new()
 	navigation_mesh.agent_height = 1.8
@@ -148,31 +163,67 @@ func _build_navigation() -> void:
 	NavigationServer3D.map_force_update(get_world_3d().navigation_map)
 
 
-func _add_navigation_segment(z_range: Vector2, bridge: bool) -> void:
-	var north_center := _river_center_x(z_range.x)
-	var south_center := _river_center_x(z_range.y)
-	var north_west_bank := north_center - NAVIGATION_RIVER_HALF_WIDTH
-	var north_east_bank := north_center + NAVIGATION_RIVER_HALF_WIDTH
-	var south_west_bank := south_center - NAVIGATION_RIVER_HALF_WIDTH
-	var south_east_bank := south_center + NAVIGATION_RIVER_HALF_WIDTH
-	_add_navigation_quad(
-		Vector2(-24.0, z_range.x),
-		Vector2(north_west_bank, z_range.x),
-		Vector2(south_west_bank, z_range.y),
-		Vector2(-24.0, z_range.y),
+func _navigation_cell_is_allowed(corners: Array[Vector2]) -> bool:
+	if _cell_overlaps_building(corners):
+		return false
+	var touches_river := false
+	for corner in corners:
+		if absf(_to_river_local(corner).x) < NAVIGATION_RIVER_HALF_WIDTH:
+			touches_river = true
+			break
+	if not touches_river:
+		return true
+	for bridge_id in BRIDGE_IDS:
+		var all_corners_on_bridge := true
+		for corner in corners:
+			if not _point_is_on_bridge(corner, bridge_id):
+				all_corners_on_bridge = false
+				break
+		if all_corners_on_bridge:
+			return true
+	return false
+
+
+func _cell_overlaps_building(corners: Array[Vector2]) -> bool:
+	var cell_min := corners[0]
+	var cell_max := corners[2]
+	var padded_half_size := BUILDING_HALF_SIZE + Vector2.ONE * (
+		NAVIGATION_BUILDING_MARGIN
 	)
-	if bridge:
-		_add_navigation_quad(
-			Vector2(north_west_bank, z_range.x),
-			Vector2(north_east_bank, z_range.x),
-			Vector2(south_east_bank, z_range.y),
-			Vector2(south_west_bank, z_range.y),
-		)
-	_add_navigation_quad(
-		Vector2(north_east_bank, z_range.x),
-		Vector2(24.0, z_range.x),
-		Vector2(24.0, z_range.y),
-		Vector2(south_east_bank, z_range.y),
+	for building_position in ENTRANCE_LAYOUT.values():
+		var center := Vector2(building_position.x, building_position.z)
+		var building_min := center - padded_half_size
+		var building_max := center + padded_half_size
+		if (
+			cell_min.x < building_max.x
+			and cell_max.x > building_min.x
+			and cell_min.y < building_max.y
+			and cell_max.y > building_min.y
+		):
+			return true
+	return false
+
+
+func _point_is_on_bridge(point: Vector2, bridge_id: String) -> bool:
+	var local_point := _to_bridge_local(point, bridge_id)
+	return (
+		absf(local_point.x) <= BRIDGE_HALF_LENGTH
+		and absf(local_point.y) <= BRIDGE_HALF_DEPTH
+	)
+
+
+func _to_bridge_local(point: Vector2, bridge_id: String) -> Vector2:
+	var center_z: float = BRIDGE_LAYOUT[bridge_id]
+	return _to_river_local(
+		point - Vector2(_river_center_x(center_z), center_z),
+	)
+
+
+func _to_river_local(point: Vector2) -> Vector2:
+	var angle := deg_to_rad(RIVER_ROTATION_DEGREES)
+	return Vector2(
+		cos(angle) * point.x - sin(angle) * point.y,
+		sin(angle) * point.x + cos(angle) * point.y,
 	)
 
 
@@ -381,14 +432,11 @@ func _build_river() -> void:
 
 
 func _build_bridges() -> void:
-	var layouts := {
-		"tingyu_bridge": Vector3(_river_center_x(-7.0), 0.2, -7.0),
-		"south_market_bridge": Vector3(_river_center_x(7.0), 0.2, 7.0),
-	}
 	for bridge_id in BRIDGE_IDS:
+		var center_z: float = BRIDGE_LAYOUT[bridge_id]
 		var bridge := Node3D.new()
 		bridge.name = bridge_id.to_pascal_case()
-		bridge.position = layouts[bridge_id]
+		bridge.position = Vector3(_river_center_x(center_z), 0.2, center_z)
 		bridge.rotation_degrees.y = RIVER_ROTATION_DEGREES
 		bridge.set_meta("bridge_id", bridge_id)
 		bridge.add_to_group("town_bridge")
@@ -396,7 +444,7 @@ func _build_bridges() -> void:
 		_add_box(
 			bridge,
 			"Deck",
-			Vector3(9.0, 0.35, BRIDGE_HALF_DEPTH * 2.0),
+			Vector3(BRIDGE_HALF_LENGTH * 2.0, 0.35, BRIDGE_HALF_DEPTH * 2.0),
 			Vector3.ZERO,
 			WOOD,
 		)
