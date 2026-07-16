@@ -1,0 +1,9 @@
+.godot/
+.tools/
+addons/.gut-install.*/
+addons/gut.backup.*/
+build/
+reports/
+screenshots/
+*.log
+*.tmp
