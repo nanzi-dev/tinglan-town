@@ -86,14 +86,16 @@ func save_checkpoint(
 	var absolute_checkpoint_path := ProjectSettings.globalize_path(checkpoint_path)
 	var absolute_temporary_path := ProjectSettings.globalize_path(temporary_path)
 	var absolute_backup_path := ProjectSettings.globalize_path(backup_path)
-	if (
-		DirAccess.dir_exists_absolute(absolute_backup_path)
-		or FileAccess.file_exists(backup_path)
-	):
+	var had_checkpoint := FileAccess.file_exists(checkpoint_path)
+	var had_backup := FileAccess.file_exists(backup_path)
+	if DirAccess.dir_exists_absolute(absolute_backup_path):
 		DirAccess.remove_absolute(absolute_temporary_path)
 		return ERR_ALREADY_EXISTS
+	if had_backup:
+		if had_checkpoint or not _read_checkpoint(backup_path)["ok"]:
+			DirAccess.remove_absolute(absolute_temporary_path)
+			return ERR_ALREADY_EXISTS
 
-	var had_checkpoint := FileAccess.file_exists(checkpoint_path)
 	if had_checkpoint:
 		var backup_error := DirAccess.rename_absolute(
 			absolute_checkpoint_path,
@@ -116,7 +118,7 @@ func save_checkpoint(
 		DirAccess.remove_absolute(absolute_temporary_path)
 		return promote_error
 
-	if had_checkpoint:
+	if had_checkpoint or had_backup:
 		var cleanup_error := DirAccess.remove_absolute(absolute_backup_path)
 		if cleanup_error != OK:
 			return cleanup_error
@@ -146,7 +148,24 @@ func append_event(event: Dictionary) -> Error:
 	if file == null:
 		return FileAccess.get_open_error()
 
+	var needs_separator := false
+	if mode == FileAccess.READ_WRITE:
+		var existing_text := file.get_as_text()
+		var read_error := file.get_error()
+		if read_error != OK:
+			file.close()
+			return read_error
+		if not _parse_event_log_text(existing_text)["ok"]:
+			file.close()
+			return ERR_INVALID_DATA
+		needs_separator = (
+			not existing_text.is_empty()
+			and not existing_text.ends_with("\n")
+		)
+
 	file.seek_end()
+	if needs_separator:
+		file.store_string("\n")
 	file.store_line(JSON.stringify({
 		"format": EVENT_FORMAT,
 		"payload": encoded_event["value"],
@@ -158,7 +177,7 @@ func append_event(event: Dictionary) -> Error:
 
 func recover(event_projector: Callable = Callable()) -> Dictionary:
 	var checkpoint := _recover_checkpoint()
-	if not checkpoint["ok"] or not event_projector.is_valid():
+	if not checkpoint["ok"]:
 		return checkpoint
 
 	var replay_read := _read_replay_events(checkpoint["last_event_sequence"])
@@ -179,6 +198,8 @@ func recover(event_projector: Callable = Callable()) -> Dictionary:
 			last_event_sequence = maxi(last_event_sequence, sequence)
 			continue
 
+		if not event_projector.is_valid():
+			return _failed_replay(checkpoint)
 		var candidate_state := world_state.duplicate(true)
 		var applied = event_projector.call(candidate_state, event.duplicate(true))
 		if typeof(applied) != TYPE_BOOL or not applied:
@@ -222,8 +243,29 @@ func _read_replay_events(after_sequence: int) -> Dictionary:
 	if read_error != OK:
 		return {"ok": false, "events": []}
 
+	var parsed_log := _parse_event_log_text(event_text)
+	if not parsed_log["ok"]:
+		return {"ok": false, "events": []}
 	var events := []
-	for line in event_text.split("\n", false):
+	for event in parsed_log["events"]:
+		if event["sequence"] > after_sequence:
+			events.append(event)
+
+	events.sort_custom(_event_less_than)
+	return {"ok": true, "events": events}
+
+
+func _parse_event_log_text(event_text: String) -> Dictionary:
+	if event_text.is_empty():
+		return {"ok": true, "events": []}
+	var lines := event_text.split("\n", true)
+	if lines[-1].is_empty():
+		lines.remove_at(lines.size() - 1)
+
+	var events := []
+	for line in lines:
+		if line.is_empty():
+			return {"ok": false, "events": []}
 		var parser := JSON.new()
 		if parser.parse(line) != OK:
 			return {"ok": false, "events": []}
@@ -237,11 +279,7 @@ func _read_replay_events(after_sequence: int) -> Dictionary:
 		var decoded := _decode_value(parsed["payload"])
 		if not decoded["ok"] or not _is_valid_event(decoded["value"]):
 			return {"ok": false, "events": []}
-		var event: Dictionary = decoded["value"]
-		if event["sequence"] > after_sequence:
-			events.append(event)
-
-	events.sort_custom(_event_less_than)
+		events.append(decoded["value"])
 	return {"ok": true, "events": events}
 
 
@@ -318,7 +356,12 @@ func _is_valid_processed_event_ids(value: Variant) -> bool:
 	return true
 
 
-func _encode_value(value: Variant) -> Dictionary:
+const MAX_CODEC_DEPTH := 64
+
+
+func _encode_value(value: Variant, depth: int = 0) -> Dictionary:
+	if depth > MAX_CODEC_DEPTH:
+		return _encode_failure()
 	match typeof(value):
 		TYPE_NIL:
 			return _encode_success({"kind": "nil"})
@@ -335,7 +378,7 @@ func _encode_value(value: Variant) -> Dictionary:
 		TYPE_ARRAY:
 			var items := []
 			for item in value:
-				var encoded_item := _encode_value(item)
+				var encoded_item := _encode_value(item, depth + 1)
 				if not encoded_item["ok"]:
 					return _encode_failure()
 				items.append(encoded_item["value"])
@@ -343,8 +386,8 @@ func _encode_value(value: Variant) -> Dictionary:
 		TYPE_DICTIONARY:
 			var entries := []
 			for key in value:
-				var encoded_key := _encode_value(key)
-				var encoded_entry_value := _encode_value(value[key])
+				var encoded_key := _encode_value(key, depth + 1)
+				var encoded_entry_value := _encode_value(value[key], depth + 1)
 				if not encoded_key["ok"] or not encoded_entry_value["ok"]:
 					return _encode_failure()
 				entries.append({
@@ -363,7 +406,9 @@ func _encode_failure() -> Dictionary:
 	return {"ok": false, "value": {}}
 
 
-func _decode_value(node: Dictionary) -> Dictionary:
+func _decode_value(node: Dictionary, depth: int = 0) -> Dictionary:
+	if depth > MAX_CODEC_DEPTH:
+		return _decode_failure()
 	var kind = node.get("kind", null)
 	if typeof(kind) != TYPE_STRING:
 		return _decode_failure()
@@ -398,7 +443,7 @@ func _decode_value(node: Dictionary) -> Dictionary:
 			for item in node["items"]:
 				if typeof(item) != TYPE_DICTIONARY:
 					return _decode_failure()
-				var decoded_item := _decode_value(item)
+				var decoded_item := _decode_value(item, depth + 1)
 				if not decoded_item["ok"]:
 					return _decode_failure()
 				decoded_items.append(decoded_item["value"])
@@ -414,8 +459,11 @@ func _decode_value(node: Dictionary) -> Dictionary:
 					or typeof(entry.get("value", null)) != TYPE_DICTIONARY
 				):
 					return _decode_failure()
-				var decoded_key := _decode_value(entry["key"])
-				var decoded_entry_value := _decode_value(entry["value"])
+				var decoded_key := _decode_value(entry["key"], depth + 1)
+				var decoded_entry_value := _decode_value(
+					entry["value"],
+					depth + 1,
+				)
 				if not decoded_key["ok"] or not decoded_entry_value["ok"]:
 					return _decode_failure()
 				decoded_dictionary[decoded_key["value"]] = decoded_entry_value["value"]

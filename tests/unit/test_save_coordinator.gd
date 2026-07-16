@@ -3,6 +3,7 @@ extends GutTest
 const SAVE_COORDINATOR_PATH := "res://scripts/core/save_coordinator.gd"
 const INT64_MAX := 0x7fffffffffffffff
 const INT64_MIN := -0x7fffffffffffffff - 1
+const OVERDEEP_CODEC_NESTING := 80
 
 var _save_dir: String
 
@@ -98,6 +99,7 @@ func test_checkpoint_round_trip_preserves_nested_int64_without_tag_collisions() 
 			],
 		},
 		"user_dictionary": {
+			"kind": "dictionary",
 			"type": "int64",
 			"value": "9007199254740993",
 		},
@@ -119,6 +121,93 @@ func test_checkpoint_round_trip_preserves_nested_int64_without_tag_collisions() 
 	)
 	for value in recovered["world_state"]["scheduler"]["ticks"]:
 		assert_eq(typeof(value), TYPE_INT)
+
+
+func test_checkpoint_rejects_overdeep_value_during_encoding() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var nested_value: Variant = null
+	for _index in range(OVERDEEP_CODEC_NESTING):
+		nested_value = [nested_value]
+
+	var save_error: Error = coordinator.save_checkpoint(
+		{"nested": nested_value},
+		0,
+		[],
+	)
+
+	assert_eq(save_error, ERR_INVALID_DATA)
+	assert_false(FileAccess.file_exists(
+		_save_dir.path_join("checkpoint.json"),
+	))
+
+
+func test_checkpoint_rejects_overdeep_typed_json_during_decoding() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var nested_node := {"kind": "nil"}
+	for _index in range(OVERDEEP_CODEC_NESTING):
+		nested_node = {"kind": "array", "items": [nested_node]}
+	var checkpoint_node := _codec_dictionary_node([
+		_codec_entry("world_state", _codec_dictionary_node([
+			_codec_entry("nested", nested_node),
+		])),
+		_codec_entry("last_event_sequence", {
+			"kind": "int64",
+			"value": "0",
+		}),
+		_codec_entry("processed_event_ids", {
+			"kind": "array",
+			"items": [],
+		}),
+	])
+	_write_text_file(
+		_save_dir.path_join("checkpoint.json"),
+		JSON.stringify({
+			"format": "tinglan-checkpoint-v1",
+			"payload": checkpoint_node,
+		}),
+	)
+
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_false(recovered["ok"])
+	assert_eq(recovered["world_state"], {})
+	assert_eq(recovered["last_event_sequence"], -1)
+	assert_eq(recovered["processed_event_ids"], [])
+
+
+func test_checkpoint_accepts_noncyclic_shared_alias_as_a_value_snapshot() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var precise_value := 9007199254740993
+	var shared := {"precise_value": precise_value}
+	assert_eq(coordinator.save_checkpoint({
+		"first": shared,
+		"second": shared,
+	}, 0, []), OK)
+	shared["precise_value"] = 0
+
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"]["first"]["precise_value"], precise_value)
+	assert_eq(recovered["world_state"]["second"]["precise_value"], precise_value)
+
+
+func test_checkpoint_rejects_cyclic_array_and_dictionary_containers() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var cyclic_array := []
+	var cyclic_dictionary := {"array": cyclic_array}
+	cyclic_array.append(cyclic_dictionary)
+
+	var save_error: Error = coordinator.save_checkpoint(
+		{"cyclic": cyclic_array},
+		0,
+		[],
+	)
+
+	assert_eq(save_error, ERR_INVALID_DATA)
+	assert_false(FileAccess.file_exists(
+		_save_dir.path_join("checkpoint.json"),
+	))
 
 
 func test_checkpoint_rejects_unsupported_nested_value_without_replacing_previous_state() -> void:
@@ -286,6 +375,42 @@ func test_recover_uses_backup_after_crash_between_atomic_renames() -> void:
 	assert_eq(recovered["processed_event_ids"], ["event-8"])
 
 
+func test_save_continues_after_recovering_from_the_only_valid_backup() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	assert_eq(
+		coordinator.save_checkpoint({"project_stage": 2}, 8, ["event-8"]),
+		OK,
+	)
+	assert_eq(
+		DirAccess.rename_absolute(
+			ProjectSettings.globalize_path(
+				_save_dir.path_join("checkpoint.json"),
+			),
+			ProjectSettings.globalize_path(
+				_save_dir.path_join("checkpoint.json.bak"),
+			),
+		),
+		OK,
+	)
+	assert_true(coordinator.recover()["ok"])
+
+	var save_error: Error = coordinator.save_checkpoint(
+		{"project_stage": 3},
+		9,
+		["event-8", "event-9"],
+	)
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_eq(save_error, OK)
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"], {"project_stage": 3})
+	assert_eq(recovered["last_event_sequence"], 9)
+	assert_eq(recovered["processed_event_ids"], ["event-8", "event-9"])
+	assert_false(FileAccess.file_exists(
+		_save_dir.path_join("checkpoint.json.bak"),
+	))
+
+
 func test_event_log_appends_one_json_object_per_line() -> void:
 	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
 	assert_eq(coordinator.append_event({
@@ -309,6 +434,50 @@ func test_event_log_appends_one_json_object_per_line() -> void:
 	assert_eq(lines.size(), 2)
 	for line in lines:
 		assert_eq(typeof(JSON.parse_string(line)), TYPE_DICTIONARY)
+
+
+func test_event_log_adds_separator_before_appending_after_valid_unterminated_line() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var event_path := _save_dir.path_join("events.jsonl")
+	assert_eq(coordinator.append_event({
+		"sequence": 1,
+		"event_id": "event-1",
+	}), OK)
+	var original_contents := _read_text_file(event_path)
+	assert_true(original_contents.ends_with("\n"))
+	_write_text_file(
+		event_path,
+		original_contents.left(original_contents.length() - 1),
+	)
+
+	assert_eq(coordinator.append_event({
+		"sequence": 2,
+		"event_id": "event-2",
+	}), OK)
+	var lines := _read_text_file(event_path).split("\n", false)
+
+	assert_eq(lines.size(), 2)
+	for line in lines:
+		assert_eq(typeof(JSON.parse_string(line)), TYPE_DICTIONARY)
+
+
+func test_event_log_rejects_partial_tail_without_changing_existing_bytes() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var event_path := _save_dir.path_join("events.jsonl")
+	assert_eq(coordinator.append_event({
+		"sequence": 1,
+		"event_id": "event-1",
+	}), OK)
+	var partial_contents := _read_text_file(event_path) + "{\"format\":"
+	_write_text_file(event_path, partial_contents)
+
+	var append_error: Error = coordinator.append_event({
+		"sequence": 2,
+		"event_id": "event-2",
+	})
+
+	assert_ne(append_error, OK)
+	assert_eq(_read_text_file(event_path), partial_contents)
 
 
 func test_event_log_rejects_invalid_or_unencodable_events_without_appending() -> void:
@@ -340,3 +509,23 @@ func _read_text_file(path: String) -> String:
 	var contents := file.get_as_text()
 	file.close()
 	return contents
+
+
+func _write_text_file(path: String, contents: String) -> void:
+	DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(path.get_base_dir()),
+	)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(contents)
+	file.close()
+
+
+func _codec_entry(key: String, value: Dictionary) -> Dictionary:
+	return {
+		"key": {"kind": "string", "value": key},
+		"value": value,
+	}
+
+
+func _codec_dictionary_node(entries: Array) -> Dictionary:
+	return {"kind": "dictionary", "entries": entries}

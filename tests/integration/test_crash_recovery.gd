@@ -50,6 +50,67 @@ func test_duplicate_logged_event_advances_each_domain_effect_once() -> void:
 	assert_eq(recovered["processed_event_ids"], ["festival-approved"])
 
 
+func test_event_payload_preserves_nested_int64_through_log_recovery() -> void:
+	var coordinator := SaveCoordinator.new(_save_dir)
+	var precise_value := 9007199254740993
+	assert_eq(coordinator.save_checkpoint({"restored": {}}, 0, []), OK)
+	assert_eq(coordinator.append_event({
+		"sequence": 1,
+		"event_id": "precise-event",
+		"payload": {"nested": [precise_value]},
+	}), OK)
+
+	var recovered: Dictionary = coordinator.recover(
+		Callable(self, "_apply_precise_event"),
+	)
+
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"]["restored"], {
+		"nested": [precise_value],
+	})
+	assert_eq(
+		typeof(recovered["world_state"]["restored"]["nested"][0]),
+		TYPE_INT,
+	)
+
+
+func test_recover_without_projector_fails_when_a_new_event_needs_projection() -> void:
+	var coordinator := SaveCoordinator.new(_save_dir)
+	var checkpoint_state := {"coins": 10}
+	assert_eq(coordinator.save_checkpoint(checkpoint_state, 0, []), OK)
+	assert_eq(coordinator.append_event({
+		"sequence": 1,
+		"event_id": "new-event",
+	}), OK)
+
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_false(recovered["ok"])
+	assert_eq(recovered["world_state"], checkpoint_state)
+	assert_eq(recovered["last_event_sequence"], 0)
+	assert_eq(recovered["processed_event_ids"], [])
+
+
+func test_recover_without_projector_skips_processed_event_and_advances_high_water() -> void:
+	var coordinator := SaveCoordinator.new(_save_dir)
+	var checkpoint_state := {"coins": 10}
+	assert_eq(
+		coordinator.save_checkpoint(checkpoint_state, 5, ["already-processed"]),
+		OK,
+	)
+	assert_eq(coordinator.append_event({
+		"sequence": 7,
+		"event_id": "already-processed",
+	}), OK)
+
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"], checkpoint_state)
+	assert_eq(recovered["last_event_sequence"], 7)
+	assert_eq(recovered["processed_event_ids"], ["already-processed"])
+
+
 func test_failed_projection_rolls_back_replay_and_does_not_skip_to_later_events() -> void:
 	var coordinator := SaveCoordinator.new(_save_dir)
 	var checkpoint_state := {"applied_event_ids": []}
@@ -86,6 +147,29 @@ func test_corrupt_event_log_rolls_back_replay_instead_of_skipping_bad_lines() ->
 	event_file.seek_end()
 	event_file.store_line("{corrupt")
 	event_file.close()
+
+	var recovered: Dictionary = coordinator.recover(
+		Callable(self, "_apply_event_unless_rejected"),
+	)
+
+	assert_false(recovered["ok"])
+	assert_eq(recovered["world_state"], checkpoint_state)
+	assert_eq(recovered["last_event_sequence"], 0)
+	assert_eq(recovered["processed_event_ids"], [])
+
+
+func test_internal_blank_event_log_line_makes_recovery_fail() -> void:
+	var coordinator := SaveCoordinator.new(_save_dir)
+	var checkpoint_state := {"applied_event_ids": []}
+	var event_path := _save_dir.path_join("events.jsonl")
+	assert_eq(coordinator.save_checkpoint(checkpoint_state, 0, []), OK)
+	for event in [
+		{"sequence": 1, "event_id": "event-1"},
+		{"sequence": 2, "event_id": "event-2"},
+	]:
+		assert_eq(coordinator.append_event(event), OK)
+	var contents := _read_text_file(event_path)
+	_write_text_file(event_path, contents.replace("\n", "\n\n"))
 
 	var recovered: Dictionary = coordinator.recover(
 		Callable(self, "_apply_event_unless_rejected"),
@@ -148,6 +232,11 @@ func _apply_test_event(world_state: Dictionary, event: Dictionary) -> bool:
 	return true
 
 
+func _apply_precise_event(world_state: Dictionary, event: Dictionary) -> bool:
+	world_state["restored"] = event["payload"].duplicate(true)
+	return true
+
+
 func _apply_event_unless_rejected(
 	world_state: Dictionary,
 	event: Dictionary,
@@ -156,3 +245,16 @@ func _apply_event_unless_rejected(
 		return false
 	world_state["applied_event_ids"].append(event["event_id"])
 	return true
+
+
+func _read_text_file(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	var contents := file.get_as_text()
+	file.close()
+	return contents
+
+
+func _write_text_file(path: String, contents: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(contents)
+	file.close()
