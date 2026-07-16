@@ -16,6 +16,11 @@ const REQUIRED_STAGE_IDS := [
 	"construction",
 	"completed",
 ]
+const REQUIRED_FESTIVAL_OUTCOME_FACTOR_IDS := [
+	"preparation_level",
+	"community_project_stage",
+	"player_resident_promise_fulfillment",
+]
 const REQUIRED_TASK_CATEGORY_COUNTS := {
 	"gather": 5,
 	"delivery": 4,
@@ -24,6 +29,30 @@ const REQUIRED_TASK_CATEGORY_COUNTS := {
 	"investigation": 2,
 	"social_promise": 2,
 	"festival_preparation": 1,
+}
+const OBJECTIVE_REQUIRED_FIELDS := {
+	"collect_item": ["item_id", "count"],
+	"deliver_item": ["item_id", "count", "recipient_id"],
+	"visit_location": ["duration_minutes"],
+	"visit_marker": ["marker_id"],
+	"repair_object": ["object_id"],
+	"collect_evidence": ["evidence_id", "count"],
+	"find_object": ["object_id"],
+	"keep_appointment": ["character_id", "minute"],
+	"return_item_on_time": ["item_id"],
+	"prepare_festival_items": ["item_id", "count"],
+}
+const COMPLETION_RULE_REQUIRED_FIELDS := {
+	"inventory_count": ["item_id", "count"],
+	"delivered_to": ["character_id", "item_id"],
+	"visited_location": ["location_id", "duration_minutes"],
+	"visited_marker": ["marker_id"],
+	"object_repaired": ["object_id"],
+	"evidence_count": ["evidence_id", "count"],
+	"object_found": ["object_id"],
+	"appointment_kept": ["character_id", "location_id"],
+	"item_returned": ["item_id", "location_id"],
+	"festival_item_count": ["item_id", "count"],
 }
 
 var characters: Array:
@@ -603,7 +632,9 @@ func _validate_tasks(
 			_validate_structured_object(
 				task["objective"],
 				"%s.objective" % path,
+				OBJECTIVE_REQUIRED_FIELDS,
 				character_ids,
+				location_ids,
 				errors,
 			)
 		if task.has("deadline"):
@@ -615,6 +646,7 @@ func _validate_tasks(
 				task["completion_rules"],
 				"%s.completion_rules" % path,
 				character_ids,
+				location_ids,
 				errors,
 			)
 	for category in REQUIRED_TASK_CATEGORY_COUNTS:
@@ -690,6 +722,7 @@ func _validate_community_project(
 			% stages.size(),
 		)
 	var actual_stage_ids := []
+	var order_errors := []
 	var stages_have_schema := true
 	for index in stages.size():
 		var path := "community_project.stages[%d]" % index
@@ -703,6 +736,11 @@ func _validate_community_project(
 		_validate_nonempty_string_field(stage, "summary", path, errors)
 		if not _normalize_integer_field(stage, "order", path, errors):
 			stages_have_schema = false
+		elif stage["order"] != index + 1:
+			order_errors.append(
+				"%s.order: expected %d, got %d"
+				% [path, index + 1, stage["order"]],
+			)
 		actual_stage_ids.append(stage.get("stage_id", ""))
 	if (
 		stages.size() == REQUIRED_STAGE_IDS.size()
@@ -715,6 +753,8 @@ func _validate_community_project(
 				+ "[proposed, collecting, voting, construction, completed]"
 			),
 		)
+	else:
+		errors.append_array(order_errors)
 
 
 func _validate_festival(
@@ -732,6 +772,7 @@ func _validate_festival(
 			"start_minute",
 			"location_id",
 			"interaction_point_id",
+			"outcome_contract",
 			"preparation_branches",
 		],
 		"festival",
@@ -762,14 +803,11 @@ func _validate_festival(
 		"festival",
 		errors,
 	)
-	if (
-		start_valid
-		and (
-			festival_value["start_minute"] < 0
-			or festival_value["start_minute"] > 1440
+	if start_valid and festival_value["start_minute"] != 1080:
+		errors.append(
+			"festival.start_minute: expected 1080 (18:00), got %d"
+			% festival_value["start_minute"],
 		)
-	):
-		errors.append("festival.start_minute: expected minute from 0 to 1440")
 	var season = festival_value.get("season", null)
 	if (
 		typeof(season) == TYPE_STRING
@@ -788,6 +826,11 @@ func _validate_festival(
 	):
 		errors.append(
 			"festival.location_id: unknown location '%s'" % location_id,
+		)
+	if festival_value.has("outcome_contract"):
+		_validate_festival_outcome_contract(
+			festival_value["outcome_contract"],
+			errors,
 		)
 	if not festival_value.has("preparation_branches"):
 		return
@@ -832,6 +875,105 @@ func _validate_festival(
 		)
 		if branch.has("display") and typeof(branch["display"]) != TYPE_DICTIONARY:
 			errors.append("%s.display: expected object" % path)
+
+
+func _validate_festival_outcome_contract(
+	value: Variant,
+	errors: Array,
+) -> void:
+	var path := "festival.outcome_contract"
+	if typeof(value) != TYPE_DICTIONARY:
+		errors.append("%s: expected object" % path)
+		return
+	var contract: Dictionary = value
+	_require_fields(
+		contract,
+		["factors", "combination", "result_mode", "allows_failure"],
+		path,
+		errors,
+	)
+	if contract.has("factors"):
+		if typeof(contract["factors"]) != TYPE_ARRAY:
+			errors.append("%s.factors: expected array" % path)
+		else:
+			var factors: Array = contract["factors"]
+			if factors.size() != REQUIRED_FESTIVAL_OUTCOME_FACTOR_IDS.size():
+				errors.append(
+					"%s.factors: expected 3 entries, got %d"
+					% [path, factors.size()],
+				)
+			var factor_ids := []
+			var factors_have_schema := true
+			for index in factors.size():
+				var factor_path := "%s.factors[%d]" % [path, index]
+				if typeof(factors[index]) != TYPE_DICTIONARY:
+					errors.append("%s: expected object" % factor_path)
+					factors_have_schema = false
+					continue
+				var factor: Dictionary = factors[index]
+				_require_fields(
+					factor,
+					["factor_id", "weight"],
+					factor_path,
+					errors,
+				)
+				if _validate_nonempty_string_field(
+					factor,
+					"factor_id",
+					factor_path,
+					errors,
+				):
+					factor_ids.append(factor["factor_id"])
+				else:
+					factors_have_schema = false
+				if _normalize_integer_field(
+					factor,
+					"weight",
+					factor_path,
+					errors,
+				) and factor["weight"] <= 0:
+					errors.append(
+						"%s.weight: expected positive integer" % factor_path,
+					)
+			if (
+				factors.size() == REQUIRED_FESTIVAL_OUTCOME_FACTOR_IDS.size()
+				and factors_have_schema
+				and factor_ids != REQUIRED_FESTIVAL_OUTCOME_FACTOR_IDS
+			):
+				errors.append(
+					(
+						"%s.factors: expected ordered factors "
+						+ "[preparation_level, community_project_stage, "
+						+ "player_resident_promise_fulfillment]"
+					) % path,
+				)
+	if _validate_nonempty_string_field(
+		contract,
+		"combination",
+		path,
+		errors,
+	) and contract["combination"] != "weighted_sum":
+		errors.append(
+			"%s.combination: expected 'weighted_sum', got '%s'"
+			% [path, contract["combination"]],
+		)
+	if _validate_nonempty_string_field(
+		contract,
+		"result_mode",
+		path,
+		errors,
+	) and contract["result_mode"] != "display_variation_only":
+		errors.append(
+			"%s.result_mode: expected 'display_variation_only', got '%s'"
+			% [path, contract["result_mode"]],
+		)
+	if _validate_bool_field(
+		contract,
+		"allows_failure",
+		path,
+		errors,
+	) and contract["allows_failure"]:
+		errors.append("%s.allows_failure: expected false" % path)
 
 
 func _validate_project_thresholds(value: Variant, errors: Array) -> void:
@@ -924,7 +1066,9 @@ func _validate_reward(
 func _validate_structured_object(
 	value: Variant,
 	path: String,
+	required_fields_by_type: Dictionary,
 	character_ids: Dictionary,
+	location_ids: Dictionary,
 	errors: Array,
 ) -> void:
 	if typeof(value) != TYPE_DICTIONARY:
@@ -932,27 +1076,50 @@ func _validate_structured_object(
 		return
 	var object: Dictionary = value
 	_require_fields(object, ["type"], path, errors)
-	_validate_nonempty_string_field(object, "type", path, errors)
+	if not _validate_nonempty_string_field(object, "type", path, errors):
+		return
+	var type_id: String = object["type"]
+	if not required_fields_by_type.has(type_id):
+		errors.append("%s.type: unknown type '%s'" % [path, type_id])
+		return
+	_require_fields(object, required_fields_by_type[type_id], path, errors)
 	for field in ["count", "duration_minutes", "minute"]:
 		if object.has(field):
 			_normalize_integer_field(object, field, path, errors)
+	for field in ["item_id", "evidence_id", "object_id", "marker_id"]:
+		if object.has(field):
+			_validate_nonempty_string_field(object, field, path, errors)
 	for field in ["character_id", "recipient_id"]:
+		if not object.has(field):
+			continue
+		if not _validate_nonempty_string_field(object, field, path, errors):
+			continue
 		var character_id = object.get(field, null)
-		if (
-			typeof(character_id) == TYPE_STRING
-			and not character_id.is_empty()
-			and not character_ids.has(character_id)
-		):
+		if not character_ids.has(character_id):
 			errors.append(
 				"%s.%s: unknown character '%s'"
 				% [path, field, character_id],
 			)
+	if object.has("location_id"):
+		if _validate_nonempty_string_field(
+			object,
+			"location_id",
+			path,
+			errors,
+		):
+			var location_id: String = object["location_id"]
+			if not location_ids.has(location_id):
+				errors.append(
+					"%s.location_id: unknown location '%s'"
+					% [path, location_id],
+				)
 
 
 func _validate_completion_rules(
 	value: Variant,
 	path: String,
 	character_ids: Dictionary,
+	location_ids: Dictionary,
 	errors: Array,
 ) -> void:
 	if typeof(value) != TYPE_ARRAY:
@@ -965,7 +1132,9 @@ func _validate_completion_rules(
 		_validate_structured_object(
 			rules[index],
 			"%s[%d]" % [path, index],
+			COMPLETION_RULE_REQUIRED_FIELDS,
 			character_ids,
+			location_ids,
 			errors,
 		)
 

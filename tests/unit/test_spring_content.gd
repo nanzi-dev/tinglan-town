@@ -9,6 +9,33 @@ const CONTENT_FILE_NAMES := [
 	"community_project.json",
 	"festival.json",
 ]
+const OBJECTIVE_SCHEMA_CASES := [
+	{"type": "collect_item", "fields": ["item_id", "count"]},
+	{"type": "deliver_item", "fields": ["item_id", "count", "recipient_id"]},
+	{"type": "visit_location", "fields": ["duration_minutes"]},
+	{"type": "visit_marker", "fields": ["marker_id"]},
+	{"type": "repair_object", "fields": ["object_id"]},
+	{"type": "collect_evidence", "fields": ["evidence_id", "count"]},
+	{"type": "find_object", "fields": ["object_id"]},
+	{"type": "keep_appointment", "fields": ["character_id", "minute"]},
+	{"type": "return_item_on_time", "fields": ["item_id"]},
+	{"type": "prepare_festival_items", "fields": ["item_id", "count"]},
+]
+const COMPLETION_RULE_SCHEMA_CASES := [
+	{"type": "inventory_count", "fields": ["item_id", "count"]},
+	{"type": "delivered_to", "fields": ["character_id", "item_id"]},
+	{
+		"type": "visited_location",
+		"fields": ["location_id", "duration_minutes"],
+	},
+	{"type": "visited_marker", "fields": ["marker_id"]},
+	{"type": "object_repaired", "fields": ["object_id"]},
+	{"type": "evidence_count", "fields": ["evidence_id", "count"]},
+	{"type": "object_found", "fields": ["object_id"]},
+	{"type": "appointment_kept", "fields": ["character_id", "location_id"]},
+	{"type": "item_returned", "fields": ["item_id", "location_id"]},
+	{"type": "festival_item_count", "fields": ["item_id", "count"]},
+]
 
 var _fixture_dir: String
 
@@ -243,6 +270,23 @@ func test_tasks_project_and_festival_match_the_approved_design() -> void:
 	assert_eq(repository.festival["day"], 12)
 	assert_eq(repository.festival["start_minute"], 1080)
 	assert_eq(repository.festival["preparation_branches"].size(), 3)
+	assert_true(repository.festival.has("outcome_contract"))
+	if not repository.festival.has("outcome_contract"):
+		return
+	var outcome_contract: Dictionary = repository.festival["outcome_contract"]
+	assert_eq(
+		outcome_contract["factors"].map(
+			func(factor): return factor["factor_id"],
+		),
+		[
+			"preparation_level",
+			"community_project_stage",
+			"player_resident_promise_fulfillment",
+		],
+	)
+	assert_eq(outcome_contract["combination"], "weighted_sum")
+	assert_eq(outcome_contract["result_mode"], "display_variation_only")
+	assert_false(outcome_contract["allows_failure"])
 
 
 func test_validation_reports_schema_and_duplicate_errors_in_order() -> void:
@@ -293,6 +337,88 @@ func test_validation_rejects_duplicate_task_template_ids() -> void:
 	])
 
 
+func test_validation_requires_fields_for_every_objective_type() -> void:
+	for schema in OBJECTIVE_SCHEMA_CASES:
+		for field in schema["fields"]:
+			_prepare_fixture()
+			var tasks := _read_fixture_json("tasks.json")
+			var task_index := _find_task_index_by_structured_type(
+				tasks["task_templates"],
+				"objective",
+				schema["type"],
+			)
+			assert_gte(task_index, 0)
+			tasks["task_templates"][task_index]["objective"].erase(field)
+			_write_fixture_json("tasks.json", tasks)
+
+			var repository = _new_repository(_fixture_dir)
+			assert_false(repository.load_spring())
+			assert_eq(repository.validation_errors, [
+				"task_templates[%d].objective.%s: missing required field"
+				% [task_index, field],
+			])
+
+
+func test_validation_requires_fields_for_every_completion_rule_type() -> void:
+	for schema in COMPLETION_RULE_SCHEMA_CASES:
+		for field in schema["fields"]:
+			_prepare_fixture()
+			var tasks := _read_fixture_json("tasks.json")
+			var task_index := _find_task_index_by_structured_type(
+				tasks["task_templates"],
+				"completion_rules",
+				schema["type"],
+			)
+			assert_gte(task_index, 0)
+			tasks["task_templates"][task_index]["completion_rules"][0].erase(field)
+			_write_fixture_json("tasks.json", tasks)
+
+			var repository = _new_repository(_fixture_dir)
+			assert_false(repository.load_spring())
+			assert_eq(repository.validation_errors, [
+				(
+					"task_templates[%d].completion_rules[0].%s: "
+					+ "missing required field"
+				) % [task_index, field],
+			])
+
+
+func test_validation_rejects_unknown_task_object_types() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][0]["objective"]["type"] = "unknown_objective"
+	tasks["task_templates"][0]["completion_rules"][0]["type"] = "unknown_rule"
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"task_templates[0].objective.type: unknown type 'unknown_objective'",
+		(
+			"task_templates[0].completion_rules[0].type: "
+			+ "unknown type 'unknown_rule'"
+		),
+	])
+
+
+func test_validation_rejects_unknown_completion_rule_location() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][9]["completion_rules"][0]["location_id"] = (
+		"missing-place"
+	)
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[9].completion_rules[0].location_id: "
+			+ "unknown location 'missing-place'"
+		),
+	])
+
+
 func test_validation_rejects_unknown_references_and_domain_rules() -> void:
 	_prepare_fixture()
 	var characters := _read_fixture_json("characters.json")
@@ -329,6 +455,95 @@ func test_validation_rejects_unknown_references_and_domain_rules() -> void:
 	])
 
 
+func test_validation_rejects_unknown_character_schedule() -> void:
+	_prepare_fixture()
+	var characters := _read_fixture_json("characters.json")
+	characters["characters"][0]["schedule_id"] = "missing-schedule"
+	_write_fixture_json("characters.json", characters)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"characters[0].schedule_id: unknown schedule 'missing-schedule'",
+	])
+
+
+func test_validation_requires_festival_to_start_at_1800() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["start_minute"] = 1020
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"festival.start_minute: expected 1080 (18:00), got 1020",
+	])
+
+
+func test_validation_requires_festival_outcome_contract_fields() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["outcome_contract"].erase("combination")
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"festival.outcome_contract.combination: missing required field",
+	])
+
+
+func test_validation_rejects_wrong_festival_outcome_contract_types() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["outcome_contract"]["factors"] = {}
+	festival["festival"]["outcome_contract"]["allows_failure"] = "false"
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"festival.outcome_contract.factors: expected array",
+		"festival.outcome_contract.allows_failure: expected boolean",
+	])
+
+
+func test_validation_rejects_illegal_festival_outcome_contract_values() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	var contract: Dictionary = festival["festival"]["outcome_contract"]
+	contract["factors"][0]["factor_id"] = "weather"
+	contract["factors"][0]["weight"] = 0
+	contract["combination"] = "first_match"
+	contract["result_mode"] = "success_or_failure"
+	contract["allows_failure"] = true
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"festival.outcome_contract.factors[0].weight: "
+			+ "expected positive integer"
+		),
+		(
+			"festival.outcome_contract.factors: expected ordered factors "
+			+ "[preparation_level, community_project_stage, "
+			+ "player_resident_promise_fulfillment]"
+		),
+		(
+			"festival.outcome_contract.combination: expected "
+			+ "'weighted_sum', got 'first_match'"
+		),
+		(
+			"festival.outcome_contract.result_mode: expected "
+			+ "'display_variation_only', got 'success_or_failure'"
+		),
+		"festival.outcome_contract.allows_failure: expected false",
+	])
+
+
 func test_validation_rejects_wrong_project_stage_order() -> void:
 	_prepare_fixture()
 	var project := _read_fixture_json("community_project.json")
@@ -345,6 +560,19 @@ func test_validation_rejects_wrong_project_stage_order() -> void:
 			"community_project.stages: expected ordered stages "
 			+ "[proposed, collecting, voting, construction, completed]"
 		),
+	])
+
+
+func test_validation_rejects_wrong_project_stage_order_number() -> void:
+	_prepare_fixture()
+	var project := _read_fixture_json("community_project.json")
+	project["community_project"]["stages"][0]["order"] = 5
+	_write_fixture_json("community_project.json", project)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"community_project.stages[0].order: expected 1, got 5",
 	])
 
 
@@ -513,3 +741,17 @@ func _write_fixture_text(file_name: String, text: String) -> void:
 		return
 	file.store_string(text)
 	file.close()
+
+
+func _find_task_index_by_structured_type(
+	tasks: Array,
+	field: String,
+	type_id: String,
+) -> int:
+	for index in tasks.size():
+		if field == "objective":
+			if tasks[index]["objective"]["type"] == type_id:
+				return index
+		elif tasks[index]["completion_rules"][0]["type"] == type_id:
+			return index
+	return -1

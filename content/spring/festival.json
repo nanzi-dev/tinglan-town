@@ -7,6 +7,25 @@
     "start_minute": 1080,
     "location_id": "town_outdoors",
     "interaction_point_id": "south_bay_festival",
+    "outcome_contract": {
+      "factors": [
+        {
+          "factor_id": "preparation_level",
+          "weight": 1
+        },
+        {
+          "factor_id": "community_project_stage",
+          "weight": 1
+        },
+        {
+          "factor_id": "player_resident_promise_fulfillment",
+          "weight": 1
+        }
+      ],
+      "combination": "weighted_sum",
+      "result_mode": "display_variation_only",
+      "allows_failure": false
+    },
     "preparation_branches": [
       {
         "branch_id": "low",
