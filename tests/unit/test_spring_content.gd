@@ -23,7 +23,7 @@ const OBJECTIVE_SCHEMA_CASES := [
 ]
 const COMPLETION_RULE_SCHEMA_CASES := [
 	{"type": "inventory_count", "fields": ["item_id", "count"]},
-	{"type": "delivered_to", "fields": ["character_id", "item_id"]},
+	{"type": "delivered_to", "fields": ["character_id", "item_id", "count"]},
 	{
 		"type": "visited_location",
 		"fields": ["location_id", "duration_minutes"],
@@ -227,6 +227,29 @@ func test_locations_and_schedules_are_ready_for_later_tasks() -> void:
 		assert_true(scheduled_locations.has(character["home_location_id"]))
 		assert_true(scheduled_locations.has(character["work_location_id"]))
 
+	var expected_task_targets := {
+		"workshop": "workshop_stool",
+		"bookshop": "bookshop_bookcase",
+		"town_outdoors": "dock_mooring_rope",
+		"general_store": "missing_ledger_page",
+	}
+	for location in repository.locations:
+		if not expected_task_targets.has(location["location_id"]):
+			continue
+		assert_true(location.has("task_targets"))
+		if not location.has("task_targets"):
+			continue
+		assert_true(
+			location["task_targets"].any(
+				func(target):
+					return (
+						target["target_id"]
+						== expected_task_targets[location["location_id"]]
+						and target["target_type"] == "object"
+					),
+			),
+		)
+
 
 func test_tasks_project_and_festival_match_the_approved_design() -> void:
 	var repository = _loaded_repository()
@@ -270,6 +293,31 @@ func test_tasks_project_and_festival_match_the_approved_design() -> void:
 	assert_eq(repository.festival["day"], 12)
 	assert_eq(repository.festival["start_minute"], 1080)
 	assert_eq(repository.festival["preparation_branches"].size(), 3)
+	assert_eq(
+		repository.festival["preparation_branches"].map(
+			func(branch): return branch["branch_id"],
+		),
+		["low", "medium", "high"],
+	)
+	var festival_location: Dictionary = repository.locations.filter(
+		func(location):
+			return (
+				location["location_id"]
+				== repository.festival["location_id"]
+			),
+	)[0]
+	assert_true(
+		festival_location["interaction_points"].any(
+			func(point):
+				return (
+					point["interaction_id"]
+					== repository.festival["interaction_point_id"]
+				),
+		),
+	)
+	for branch in repository.festival["preparation_branches"]:
+		for field in ["decoration_level", "attendance", "dialogue_tone"]:
+			assert_false(branch["display"][field].is_empty())
 	assert_true(repository.festival.has("outcome_contract"))
 	if not repository.festival.has("outcome_contract"):
 		return
@@ -287,6 +335,154 @@ func test_tasks_project_and_festival_match_the_approved_design() -> void:
 	assert_eq(outcome_contract["combination"], "weighted_sum")
 	assert_eq(outcome_contract["result_mode"], "display_variation_only")
 	assert_false(outcome_contract["allows_failure"])
+
+
+func test_delivery_completion_rules_match_objective_counts() -> void:
+	var repository = _loaded_repository()
+	if repository == null:
+		return
+
+	for task in repository.task_templates:
+		if task["objective"]["type"] != "deliver_item":
+			continue
+		var rule: Dictionary = task["completion_rules"][0]
+		assert_true(
+			rule.has("count"),
+			"%s delivery rule lacks count." % task["template_id"],
+		)
+		if rule.has("count"):
+			assert_eq(rule["count"], task["objective"]["count"])
+
+
+func test_validation_rejects_delivery_count_mismatch() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][8]["completion_rules"][0]["count"] = 3
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[8].completion_rules[0].count: "
+			+ "expected 2 to match objective.count, got 3"
+		),
+	])
+
+
+func test_validation_rejects_invalid_task_numeric_ranges() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	var gather: Dictionary = tasks["task_templates"][0]
+	gather["objective"]["count"] = -1
+	gather["deadline"]["days"] = -2
+	gather["deadline"]["minute"] = 2000
+	gather["completion_rules"][0]["count"] = -1
+	var visit: Dictionary = tasks["task_templates"][9]
+	visit["objective"]["duration_minutes"] = 0
+	visit["completion_rules"][0]["duration_minutes"] = 0
+	tasks["task_templates"][17]["objective"]["minute"] = 2000
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"task_templates[0].objective.count: expected positive integer",
+		"task_templates[0].deadline.days: expected non-negative integer",
+		"task_templates[0].deadline.minute: expected integer in range 0..1440",
+		(
+			"task_templates[0].completion_rules[0].count: "
+			+ "expected positive integer"
+		),
+		(
+			"task_templates[9].objective.duration_minutes: "
+			+ "expected positive integer"
+		),
+		(
+			"task_templates[9].completion_rules[0].duration_minutes: "
+			+ "expected positive integer"
+		),
+		"task_templates[17].objective.minute: expected integer in range 0..1440",
+	])
+
+
+func test_validation_rejects_objective_completion_semantic_mismatches() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][0]["completion_rules"][0]["item_id"] = "tea_shoot"
+	tasks["task_templates"][5]["completion_rules"][0]["character_id"] = "gu-yun"
+	tasks["task_templates"][9]["completion_rules"][0]["location_id"] = "qiao_home"
+	tasks["task_templates"][9]["completion_rules"][0]["duration_minutes"] = 31
+	tasks["task_templates"][11]["objective"]["marker_id"] = "tingyu_bridge"
+	tasks["task_templates"][15]["completion_rules"][0]["count"] = 2
+	tasks["task_templates"][17]["completion_rules"][0]["character_id"] = "shen-yan"
+	tasks["task_templates"][18]["completion_rules"][0]["item_id"] = "other_book"
+	tasks["task_templates"][19]["completion_rules"][0]["count"] = 11
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[0].completion_rules[0].item_id: expected "
+			+ "spring_herb to match objective.item_id, got tea_shoot"
+		),
+		(
+			"task_templates[5].completion_rules[0].character_id: expected "
+			+ "qiao-zhen to match objective.recipient_id, got gu-yun"
+		),
+		(
+			"task_templates[9].completion_rules[0].location_id: expected "
+			+ "clinic to match task.location_id, got qiao_home"
+		),
+		(
+			"task_templates[9].completion_rules[0].duration_minutes: expected "
+			+ "30 to match objective.duration_minutes, got 31"
+		),
+		(
+			"task_templates[11].completion_rules[0].marker_id: expected "
+			+ "tingyu_bridge to match objective.marker_id, got south_bay_festival"
+		),
+		(
+			"task_templates[15].completion_rules[0].count: expected "
+			+ "3 to match objective.count, got 2"
+		),
+		(
+			"task_templates[17].completion_rules[0].character_id: expected "
+			+ "lin-xi to match objective.character_id, got shen-yan"
+		),
+		(
+			"task_templates[18].completion_rules[0].item_id: expected "
+			+ "annotated_old_book to match objective.item_id, got other_book"
+		),
+		(
+			"task_templates[19].completion_rules[0].count: expected "
+			+ "12 to match objective.count, got 11"
+		),
+	])
+
+
+func test_validation_rejects_unknown_location_task_target() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][12]["objective"]["object_id"] = "unknown_stool"
+	tasks["task_templates"][12]["completion_rules"][0]["object_id"] = (
+		"unknown_stool"
+	)
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[12].objective.object_id: unknown task target "
+			+ "'unknown_stool' for location 'workshop'"
+		),
+		(
+			"task_templates[12].completion_rules[0].object_id: "
+			+ "unknown task target 'unknown_stool' for location 'workshop'"
+		),
+	])
 
 
 func test_validation_reports_schema_and_duplicate_errors_in_order() -> void:
@@ -468,6 +664,40 @@ func test_validation_rejects_unknown_character_schedule() -> void:
 	])
 
 
+func test_validation_rejects_invalid_spring_schedule_enums() -> void:
+	_prepare_fixture()
+	var schedules := _read_fixture_json("schedules.json")
+	schedules["schedules"][0]["season"] = "winter"
+	schedules["schedules"][1]["day_type"] = "weekly_market"
+	_write_fixture_json("schedules.json", schedules)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"schedules[0].season: expected 'spring', got 'winter'",
+		(
+			"schedules[1].day_type: expected one of "
+			+ "[normal, festival, personal_event], got 'weekly_market'"
+		),
+	])
+
+
+func test_validation_rejects_overlapping_schedule_entries() -> void:
+	_prepare_fixture()
+	var schedules := _read_fixture_json("schedules.json")
+	schedules["schedules"][0]["entries"][1]["start_minute"] = 420
+	_write_fixture_json("schedules.json", schedules)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"schedules[0].entries[1].start_minute: expected at least 480 "
+			+ "to preserve order without overlap, got 420"
+		),
+	])
+
+
 func test_validation_requires_festival_to_start_at_1800() -> void:
 	_prepare_fixture()
 	var festival := _read_fixture_json("festival.json")
@@ -544,6 +774,91 @@ func test_validation_rejects_illegal_festival_outcome_contract_values() -> void:
 	])
 
 
+func test_validation_rejects_unknown_festival_interaction_point() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["interaction_point_id"] = "missing-point"
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"festival.interaction_point_id: unknown interaction point "
+			+ "'missing-point' for location 'town_outdoors'"
+		),
+	])
+
+
+func test_validation_rejects_duplicate_or_nonstandard_festival_branch_ids() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["preparation_branches"][0]["branch_id"] = "medium"
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"festival.preparation_branches[1].branch_id: "
+			+ "duplicate id 'medium'"
+		),
+		(
+			"festival.preparation_branches: expected ordered branch ids "
+			+ "[low, medium, high]"
+		),
+	])
+
+
+func test_validation_rejects_festival_branch_range_gaps_and_bad_bounds() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	var branches: Array = festival["festival"]["preparation_branches"]
+	branches[0]["minimum_preparation"] = 1
+	branches[1]["minimum_preparation"] = 41
+	branches[2]["maximum_preparation"] = 99
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"festival.preparation_branches[0].minimum_preparation: "
+			+ "expected 0, got 1"
+		),
+		(
+			"festival.preparation_branches[1].minimum_preparation: "
+			+ "expected 40 after previous maximum, got 41"
+		),
+		(
+			"festival.preparation_branches[2].maximum_preparation: "
+			+ "expected 100, got 99"
+		),
+	])
+
+
+func test_validation_requires_complete_nonempty_festival_branch_display() -> void:
+	_prepare_fixture()
+	var festival := _read_fixture_json("festival.json")
+	var branches: Array = festival["festival"]["preparation_branches"]
+	branches[0]["display"].erase("attendance")
+	branches[1]["display"]["dialogue_tone"] = ""
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"festival.preparation_branches[0].display.attendance: "
+			+ "missing required field"
+		),
+		(
+			"festival.preparation_branches[1].display.dialogue_tone: "
+			+ "expected non-empty string"
+		),
+	])
+
+
 func test_validation_rejects_wrong_project_stage_order() -> void:
 	_prepare_fixture()
 	var project := _read_fixture_json("community_project.json")
@@ -586,14 +901,15 @@ func test_malformed_json_failure_is_atomic_and_alias_safe() -> void:
 	var changed_characters := _read_fixture_json("characters.json")
 	changed_characters["characters"][0]["name"] = "半加载数据"
 	_write_fixture_json("characters.json", changed_characters)
-	_write_fixture_text("schedules.json", "{\"schedules\":[")
+	_write_fixture_text("schedules.json", "{\n  \"schedules\": [")
 
 	assert_false(repository.load_spring())
 	assert_eq(repository.validation_errors.size(), 1)
 	assert_true(
-		repository.validation_errors[0].begins_with(
-			"schedules.json:0: invalid JSON:",
-		),
+		repository.validation_errors[0].begins_with("schedules.json:"),
+	)
+	assert_true(
+		repository.validation_errors[0].contains(": invalid JSON:"),
 	)
 	assert_eq(repository.characters[0]["name"], "沈砚")
 

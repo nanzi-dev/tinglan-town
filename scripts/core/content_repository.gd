@@ -16,6 +16,11 @@ const REQUIRED_STAGE_IDS := [
 	"construction",
 	"completed",
 ]
+const VALID_SPRING_DAY_TYPES := [
+	"normal",
+	"festival",
+	"personal_event",
+]
 const REQUIRED_FESTIVAL_OUTCOME_FACTOR_IDS := [
 	"preparation_level",
 	"community_project_stage",
@@ -44,7 +49,7 @@ const OBJECTIVE_REQUIRED_FIELDS := {
 }
 const COMPLETION_RULE_REQUIRED_FIELDS := {
 	"inventory_count": ["item_id", "count"],
-	"delivered_to": ["character_id", "item_id"],
+	"delivered_to": ["character_id", "item_id", "count"],
 	"visited_location": ["location_id", "duration_minutes"],
 	"visited_marker": ["marker_id"],
 	"object_repaired": ["object_id"],
@@ -53,6 +58,18 @@ const COMPLETION_RULE_REQUIRED_FIELDS := {
 	"appointment_kept": ["character_id", "location_id"],
 	"item_returned": ["item_id", "location_id"],
 	"festival_item_count": ["item_id", "count"],
+}
+const OBJECTIVE_COMPLETION_RULE_TYPES := {
+	"collect_item": "inventory_count",
+	"deliver_item": "delivered_to",
+	"visit_location": "visited_location",
+	"visit_marker": "visited_marker",
+	"repair_object": "object_repaired",
+	"collect_evidence": "evidence_count",
+	"find_object": "object_found",
+	"keep_appointment": "appointment_kept",
+	"return_item_on_time": "item_returned",
+	"prepare_festival_items": "festival_item_count",
 }
 
 var characters: Array:
@@ -375,8 +392,25 @@ func _validate_locations(items: Array, errors: Array) -> Dictionary:
 			path,
 			errors,
 		)
+		var task_target_ids := _validate_task_targets(
+			location,
+			path,
+			errors,
+		)
 		if not location_id.is_empty():
-			ids[location_id] = true
+			var interaction_point_ids := {}
+			if typeof(location.get("interaction_points", null)) == TYPE_ARRAY:
+				for point in location["interaction_points"]:
+					if (
+						typeof(point) == TYPE_DICTIONARY
+						and typeof(point.get("interaction_id", null)) == TYPE_STRING
+						and not point["interaction_id"].is_empty()
+					):
+						interaction_point_ids[point["interaction_id"]] = true
+			ids[location_id] = {
+				"interaction_point_ids": interaction_point_ids,
+				"task_target_ids": task_target_ids,
+			}
 
 	if interior_count != 10:
 		errors.append(
@@ -440,6 +474,27 @@ func _validate_schedules(
 		)
 		for field in ["character_id", "season", "day_type"]:
 			_validate_nonempty_string_field(schedule, field, path, errors)
+		var season = schedule.get("season", null)
+		if (
+			typeof(season) == TYPE_STRING
+			and not season.is_empty()
+			and season != "spring"
+		):
+			errors.append(
+				"%s.season: expected 'spring', got '%s'" % [path, season],
+			)
+		var day_type = schedule.get("day_type", null)
+		if (
+			typeof(day_type) == TYPE_STRING
+			and not day_type.is_empty()
+			and not VALID_SPRING_DAY_TYPES.has(day_type)
+		):
+			errors.append(
+				(
+					"%s.day_type: expected one of "
+					+ "[normal, festival, personal_event], got '%s'"
+				) % [path, day_type],
+			)
 		var character_id = schedule.get("character_id", null)
 		if (
 			typeof(character_id) == TYPE_STRING
@@ -457,13 +512,43 @@ func _validate_schedules(
 				var entries: Array = schedule["entries"]
 				if entries.is_empty():
 					errors.append("%s.entries: must not be empty" % path)
+				var previous_end_minute = null
 				for entry_index in entries.size():
+					var entry_path := "%s.entries[%d]" % [path, entry_index]
 					_validate_schedule_entry(
 						entries[entry_index],
-						"%s.entries[%d]" % [path, entry_index],
+						entry_path,
 						location_ids,
 						errors,
 					)
+					if typeof(entries[entry_index]) != TYPE_DICTIONARY:
+						previous_end_minute = null
+						continue
+					var entry: Dictionary = entries[entry_index]
+					if (
+						typeof(entry.get("start_minute", null)) != TYPE_INT
+						or typeof(entry.get("end_minute", null)) != TYPE_INT
+						or entry["start_minute"] < 0
+						or entry["end_minute"] > 1440
+						or entry["start_minute"] >= entry["end_minute"]
+					):
+						previous_end_minute = null
+						continue
+					if (
+						previous_end_minute != null
+						and entry["start_minute"] < previous_end_minute
+					):
+						errors.append(
+							(
+								"%s.start_minute: expected at least %d "
+								+ "to preserve order without overlap, got %d"
+							) % [
+								entry_path,
+								previous_end_minute,
+								entry["start_minute"],
+							],
+						)
+					previous_end_minute = entry["end_minute"]
 		if not schedule_id.is_empty():
 			ids[schedule_id] = character_id
 	return ids
@@ -649,6 +734,13 @@ func _validate_tasks(
 				location_ids,
 				errors,
 			)
+		_validate_task_target_references(
+			task,
+			path,
+			location_ids,
+			errors,
+		)
+		_validate_task_semantics(task, path, errors)
 	for category in REQUIRED_TASK_CATEGORY_COUNTS:
 		if category_counts[category] != REQUIRED_TASK_CATEGORY_COUNTS[category]:
 			errors.append(
@@ -827,6 +919,23 @@ func _validate_festival(
 		errors.append(
 			"festival.location_id: unknown location '%s'" % location_id,
 		)
+	var interaction_point_id = festival_value.get("interaction_point_id", null)
+	if (
+		typeof(location_id) == TYPE_STRING
+		and not location_id.is_empty()
+		and location_ids.has(location_id)
+		and typeof(interaction_point_id) == TYPE_STRING
+		and not interaction_point_id.is_empty()
+		and not location_ids[location_id]["interaction_point_ids"].has(
+			interaction_point_id,
+		)
+	):
+		errors.append(
+			(
+				"festival.interaction_point_id: unknown interaction point "
+				+ "'%s' for location '%s'"
+			) % [interaction_point_id, location_id],
+		)
 	if festival_value.has("outcome_contract"):
 		_validate_festival_outcome_contract(
 			festival_value["outcome_contract"],
@@ -843,10 +952,16 @@ func _validate_festival(
 			"festival.preparation_branches: expected 3 entries, got %d"
 			% branches.size(),
 		)
+	var branch_ids := []
+	var seen_branch_ids := {}
+	var branches_have_ids := true
+	var previous_maximum = null
 	for index in branches.size():
 		var path := "festival.preparation_branches[%d]" % index
 		if typeof(branches[index]) != TYPE_DICTIONARY:
 			errors.append("%s: expected object" % path)
+			branches_have_ids = false
+			previous_maximum = null
 			continue
 		var branch: Dictionary = branches[index]
 		_require_fields(
@@ -860,21 +975,92 @@ func _validate_festival(
 			path,
 			errors,
 		)
-		_validate_nonempty_string_field(branch, "branch_id", path, errors)
-		_normalize_integer_field(
+		if _validate_nonempty_string_field(branch, "branch_id", path, errors):
+			var branch_id: String = branch["branch_id"]
+			if seen_branch_ids.has(branch_id):
+				errors.append(
+					"%s.branch_id: duplicate id '%s'" % [path, branch_id],
+				)
+			else:
+				seen_branch_ids[branch_id] = true
+			branch_ids.append(branch_id)
+		else:
+			branches_have_ids = false
+		var minimum_valid := _normalize_integer_field(
 			branch,
 			"minimum_preparation",
 			path,
 			errors,
 		)
-		_normalize_integer_field(
+		var maximum_valid := _normalize_integer_field(
 			branch,
 			"maximum_preparation",
 			path,
 			errors,
 		)
-		if branch.has("display") and typeof(branch["display"]) != TYPE_DICTIONARY:
-			errors.append("%s.display: expected object" % path)
+		if minimum_valid and maximum_valid:
+			var minimum: int = branch["minimum_preparation"]
+			var maximum: int = branch["maximum_preparation"]
+			if minimum < 0 or maximum > 100 or minimum > maximum:
+				errors.append(
+					(
+						"%s: expected 0 <= minimum_preparation "
+						+ "<= maximum_preparation <= 100"
+					) % path,
+				)
+			if index == 0 and minimum != 0:
+				errors.append(
+					"%s.minimum_preparation: expected 0, got %d"
+					% [path, minimum],
+				)
+			elif previous_maximum != null and minimum != previous_maximum + 1:
+				errors.append(
+					(
+						"%s.minimum_preparation: expected %d "
+						+ "after previous maximum, got %d"
+					) % [path, previous_maximum + 1, minimum],
+				)
+			if index == branches.size() - 1 and maximum != 100:
+				errors.append(
+					"%s.maximum_preparation: expected 100, got %d"
+					% [path, maximum],
+				)
+			previous_maximum = maximum
+		else:
+			previous_maximum = null
+		if branch.has("display"):
+			if typeof(branch["display"]) != TYPE_DICTIONARY:
+				errors.append("%s.display: expected object" % path)
+			else:
+				var display: Dictionary = branch["display"]
+				_require_fields(
+					display,
+					["decoration_level", "attendance", "dialogue_tone"],
+					"%s.display" % path,
+					errors,
+				)
+				for field in [
+					"decoration_level",
+					"attendance",
+					"dialogue_tone",
+				]:
+					_validate_nonempty_string_field(
+						display,
+						field,
+						"%s.display" % path,
+						errors,
+					)
+	if (
+		branches.size() == 3
+		and branches_have_ids
+		and branch_ids != ["low", "medium", "high"]
+	):
+		errors.append(
+			(
+				"festival.preparation_branches: expected ordered branch ids "
+				+ "[low, medium, high]"
+			),
+		)
 
 
 func _validate_festival_outcome_contract(
@@ -1037,8 +1223,16 @@ func _validate_deadline(
 		return
 	var deadline: Dictionary = value
 	_require_fields(deadline, ["days", "minute"], path, errors)
-	for field in ["days", "minute"]:
-		_normalize_integer_field(deadline, field, path, errors)
+	if (
+		_normalize_integer_field(deadline, "days", path, errors)
+		and deadline["days"] < 0
+	):
+		errors.append("%s.days: expected non-negative integer" % path)
+	if (
+		_normalize_integer_field(deadline, "minute", path, errors)
+		and (deadline["minute"] < 0 or deadline["minute"] > 1440)
+	):
+		errors.append("%s.minute: expected integer in range 0..1440" % path)
 
 
 func _validate_reward(
@@ -1084,8 +1278,16 @@ func _validate_structured_object(
 		return
 	_require_fields(object, required_fields_by_type[type_id], path, errors)
 	for field in ["count", "duration_minutes", "minute"]:
-		if object.has(field):
-			_normalize_integer_field(object, field, path, errors)
+		if not object.has(field):
+			continue
+		if not _normalize_integer_field(object, field, path, errors):
+			continue
+		if field in ["count", "duration_minutes"] and object[field] <= 0:
+			errors.append("%s.%s: expected positive integer" % [path, field])
+		elif field == "minute" and (
+			object[field] < 0 or object[field] > 1440
+		):
+			errors.append("%s.minute: expected integer in range 0..1440" % path)
 	for field in ["item_id", "evidence_id", "object_id", "marker_id"]:
 		if object.has(field):
 			_validate_nonempty_string_field(object, field, path, errors)
@@ -1137,6 +1339,271 @@ func _validate_completion_rules(
 			location_ids,
 			errors,
 		)
+
+
+func _validate_task_semantics(
+	task: Dictionary,
+	path: String,
+	errors: Array,
+) -> void:
+	if (
+		typeof(task.get("objective", null)) != TYPE_DICTIONARY
+		or typeof(task.get("completion_rules", null)) != TYPE_ARRAY
+		or task["completion_rules"].is_empty()
+	):
+		return
+	var objective: Dictionary = task["objective"]
+	var objective_type = objective.get("type", "")
+	if not OBJECTIVE_COMPLETION_RULE_TYPES.has(objective_type):
+		return
+	var expected_rule_type: String = OBJECTIVE_COMPLETION_RULE_TYPES[objective_type]
+	for index in task["completion_rules"].size():
+		if typeof(task["completion_rules"][index]) != TYPE_DICTIONARY:
+			continue
+		var rule: Dictionary = task["completion_rules"][index]
+		var rule_type = rule.get("type", "")
+		if not COMPLETION_RULE_REQUIRED_FIELDS.has(rule_type):
+			continue
+		var rule_path := "%s.completion_rules[%d]" % [path, index]
+		if rule_type != expected_rule_type:
+			errors.append(
+				"%s.type: expected '%s' for objective type '%s', got '%s'"
+				% [rule_path, expected_rule_type, objective_type, rule_type],
+			)
+			continue
+		match objective_type:
+			"collect_item":
+				_compare_task_semantic_field(
+					rule, rule_path, "item_id",
+					objective, "objective", "item_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "count",
+					objective, "objective", "count", errors,
+				)
+			"deliver_item":
+				_compare_task_semantic_field(
+					rule, rule_path, "character_id",
+					objective, "objective", "recipient_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "item_id",
+					objective, "objective", "item_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "count",
+					objective, "objective", "count", errors,
+				)
+			"visit_location":
+				_compare_task_semantic_field(
+					rule, rule_path, "location_id",
+					task, "task", "location_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "duration_minutes",
+					objective, "objective", "duration_minutes", errors,
+				)
+			"visit_marker":
+				_compare_task_semantic_field(
+					rule, rule_path, "marker_id",
+					objective, "objective", "marker_id", errors,
+				)
+			"repair_object":
+				_compare_task_semantic_field(
+					rule, rule_path, "object_id",
+					objective, "objective", "object_id", errors,
+				)
+			"collect_evidence":
+				_compare_task_semantic_field(
+					rule, rule_path, "evidence_id",
+					objective, "objective", "evidence_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "count",
+					objective, "objective", "count", errors,
+				)
+			"find_object":
+				_compare_task_semantic_field(
+					rule, rule_path, "object_id",
+					objective, "objective", "object_id", errors,
+				)
+			"keep_appointment":
+				_compare_task_semantic_field(
+					rule, rule_path, "character_id",
+					objective, "objective", "character_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "location_id",
+					task, "task", "location_id", errors,
+				)
+			"return_item_on_time":
+				_compare_task_semantic_field(
+					rule, rule_path, "item_id",
+					objective, "objective", "item_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "location_id",
+					task, "task", "location_id", errors,
+				)
+			"prepare_festival_items":
+				_compare_task_semantic_field(
+					rule, rule_path, "item_id",
+					objective, "objective", "item_id", errors,
+				)
+				_compare_task_semantic_field(
+					rule, rule_path, "count",
+					objective, "objective", "count", errors,
+				)
+
+
+func _compare_task_semantic_field(
+	rule: Dictionary,
+	rule_path: String,
+	rule_field: String,
+	source: Dictionary,
+	source_path: String,
+	source_field: String,
+	errors: Array,
+) -> void:
+	if not rule.has(rule_field) or not source.has(source_field):
+		return
+	var field_error_prefix := "%s.%s:" % [rule_path, rule_field]
+	for error in errors:
+		if error.begins_with(field_error_prefix):
+			return
+	if typeof(rule[rule_field]) != typeof(source[source_field]):
+		return
+	if rule[rule_field] == source[source_field]:
+		return
+	errors.append(
+		"%s.%s: expected %s to match %s.%s, got %s"
+		% [
+			rule_path,
+			rule_field,
+			source[source_field],
+			source_path,
+			source_field,
+			rule[rule_field],
+		],
+	)
+
+
+func _validate_task_target_references(
+	task: Dictionary,
+	path: String,
+	location_ids: Dictionary,
+	errors: Array,
+) -> void:
+	var location_id = task.get("location_id", null)
+	if (
+		typeof(location_id) != TYPE_STRING
+		or location_id.is_empty()
+		or not location_ids.has(location_id)
+	):
+		return
+	var target_ids: Dictionary = location_ids[location_id]["task_target_ids"]
+	var objective = task.get("objective", null)
+	if typeof(objective) == TYPE_DICTIONARY and objective.get("type", "") in [
+		"repair_object",
+		"find_object",
+	]:
+		_validate_task_target_reference(
+			objective,
+			"object_id",
+			"%s.objective" % path,
+			location_id,
+			target_ids,
+			errors,
+		)
+	var rules = task.get("completion_rules", null)
+	if typeof(rules) != TYPE_ARRAY:
+		return
+	for index in rules.size():
+		if typeof(rules[index]) != TYPE_DICTIONARY:
+			continue
+		var rule: Dictionary = rules[index]
+		if rule.get("type", "") not in ["object_repaired", "object_found"]:
+			continue
+		_validate_task_target_reference(
+			rule,
+			"object_id",
+			"%s.completion_rules[%d]" % [path, index],
+			location_id,
+			target_ids,
+			errors,
+		)
+
+
+func _validate_task_target_reference(
+	record: Dictionary,
+	field: String,
+	path: String,
+	location_id: String,
+	target_ids: Dictionary,
+	errors: Array,
+) -> void:
+	var target_id = record.get(field, null)
+	if (
+		typeof(target_id) != TYPE_STRING
+		or target_id.is_empty()
+		or target_ids.has(target_id)
+	):
+		return
+	errors.append(
+		"%s.%s: unknown task target '%s' for location '%s'"
+		% [path, field, target_id, location_id],
+	)
+
+
+func _validate_task_targets(
+	location: Dictionary,
+	path: String,
+	errors: Array,
+) -> Dictionary:
+	var ids := {}
+	if not location.has("task_targets"):
+		return ids
+	if typeof(location["task_targets"]) != TYPE_ARRAY:
+		errors.append("%s.task_targets: expected array" % path)
+		return ids
+	var targets: Array = location["task_targets"]
+	for index in targets.size():
+		var target_path := "%s.task_targets[%d]" % [path, index]
+		if typeof(targets[index]) != TYPE_DICTIONARY:
+			errors.append("%s: expected object" % target_path)
+			continue
+		var target: Dictionary = targets[index]
+		_require_fields(
+			target,
+			["target_id", "target_type"],
+			target_path,
+			errors,
+		)
+		if _validate_nonempty_string_field(
+			target,
+			"target_id",
+			target_path,
+			errors,
+		):
+			var target_id: String = target["target_id"]
+			if ids.has(target_id):
+				errors.append(
+					"%s.target_id: duplicate id '%s'"
+					% [target_path, target_id],
+				)
+			else:
+				ids[target_id] = true
+		if _validate_nonempty_string_field(
+			target,
+			"target_type",
+			target_path,
+			errors,
+		) and target["target_type"] != "object":
+			errors.append(
+				"%s.target_type: expected 'object', got '%s'"
+				% [target_path, target["target_type"]],
+			)
+	return ids
 
 
 func _validate_layout_array(

@@ -63,7 +63,7 @@
       "location_id": "qiao_home",
       "deadline": {"days": 1, "minute": 960},
       "reward": {"coins": 45, "trust": 1},
-      "completion_rules": [{"type": "delivered_to", "character_id": "qiao-zhen", "item_id": "medicine_packet"}],
+      "completion_rules": [{"type": "delivered_to", "character_id": "qiao-zhen", "item_id": "medicine_packet", "count": 1}],
       "description": "把诊所配好的药包送到乔贞家。"
     },
     {
@@ -74,7 +74,7 @@
       "location_id": "bookshop",
       "deadline": {"days": 1, "minute": 780},
       "reward": {"coins": 35, "trust": 1},
-      "completion_rules": [{"type": "delivered_to", "character_id": "shen-yan", "item_id": "tea_flask"}],
+      "completion_rules": [{"type": "delivered_to", "character_id": "shen-yan", "item_id": "tea_flask", "count": 1}],
       "description": "将一壶新茶送到砚边书屋。"
     },
     {
@@ -85,7 +85,7 @@
       "location_id": "tea_house",
       "deadline": {"days": 1, "minute": 900},
       "reward": {"coins": 50, "trust": 1},
-      "completion_rules": [{"type": "delivered_to", "character_id": "lin-xi", "item_id": "tea_house_supplies"}],
+      "completion_rules": [{"type": "delivered_to", "character_id": "lin-xi", "item_id": "tea_house_supplies", "count": 1}],
       "description": "把杂货铺备好的茶馆用品送给林汐。"
     },
     {
@@ -96,7 +96,7 @@
       "location_id": "gu_home",
       "deadline": {"days": 2, "minute": 1080},
       "reward": {"coins": 55, "trust": 1},
-      "completion_rules": [{"type": "delivered_to", "character_id": "gu-yun", "item_id": "community_letter"}],
+      "completion_rules": [{"type": "delivered_to", "character_id": "gu-yun", "item_id": "community_letter", "count": 2}],
       "description": "将社区通知送到顾云与徐灯合住的河边住所。"
     },
     {

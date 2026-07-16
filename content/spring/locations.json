@@ -49,6 +49,9 @@
       "interaction_points": [
         {"interaction_id": "shop", "x": 2, "z": 3},
         {"interaction_id": "delivery_crate", "x": 7, "z": 3}
+      ],
+      "task_targets": [
+        {"target_id": "missing_ledger_page", "target_type": "object"}
       ]
     },
     {
@@ -83,6 +86,9 @@
       "interaction_points": [
         {"interaction_id": "repair_station", "x": 5, "z": 4},
         {"interaction_id": "material_dropoff", "x": 10, "z": 3}
+      ],
+      "task_targets": [
+        {"target_id": "workshop_stool", "target_type": "object"}
       ]
     },
     {
@@ -100,6 +106,9 @@
       "interaction_points": [
         {"interaction_id": "browse_books", "x": 7, "z": 3},
         {"interaction_id": "return_book", "x": 2, "z": 3}
+      ],
+      "task_targets": [
+        {"target_id": "bookshop_bookcase", "target_type": "object"}
       ]
     },
     {
@@ -186,6 +195,9 @@
       "interaction_points": [
         {"interaction_id": "tingyu_bridge", "x": 88, "z": 70},
         {"interaction_id": "south_bay_festival", "x": 105, "z": 122}
+      ],
+      "task_targets": [
+        {"target_id": "dock_mooring_rope", "target_type": "object"}
       ],
       "districts": ["west_residential", "central_market", "east_craft", "south_bay"]
     }

@@ -24,6 +24,18 @@ const LEGAL_TRANSITIONS := {
 	"open": ["accepted", "expired"],
 	"accepted": ["withdrawn"],
 }
+const STRUCTURED_RULE_FIELDS := {
+	"inventory_count": ["item_id", "count"],
+	"delivered_to": ["character_id", "item_id", "count"],
+	"visited_location": ["location_id", "duration_minutes"],
+	"visited_marker": ["marker_id"],
+	"object_repaired": ["object_id"],
+	"evidence_count": ["evidence_id", "count"],
+	"object_found": ["object_id"],
+	"appointment_kept": ["character_id", "location_id"],
+	"item_returned": ["item_id", "location_id"],
+	"festival_item_count": ["item_id", "count"],
+}
 
 var _event_log: DomainEventLog
 var _tasks := {}
@@ -43,6 +55,20 @@ func add_task(task: Variant) -> bool:
 
 	_tasks[task_id] = task.duplicate(true)
 	return true
+
+
+func add_task_template(template: Variant, status: String = "open") -> bool:
+	if typeof(template) != TYPE_DICTIONARY:
+		return false
+	for field in ["template_id", "reward", "completion_rules"]:
+		if not template.has(field):
+			return false
+	return add_task({
+		"task_id": template["template_id"],
+		"status": status,
+		"reward": template["reward"],
+		"completion_rules": template["completion_rules"],
+	})
 
 
 func transition_task(task_id: Variant, next_status: Variant) -> bool:
@@ -126,14 +152,25 @@ func _is_valid_reward(reward: Dictionary) -> bool:
 
 
 func _is_valid_completion_rule(rule: Variant) -> bool:
-	if typeof(rule) != TYPE_DICTIONARY or rule.get("type", "") != "has_item":
+	if typeof(rule) != TYPE_DICTIONARY:
 		return false
-	return (
-			typeof(rule.get("item_id", null)) == TYPE_STRING
-			and not rule["item_id"].is_empty()
-			and typeof(rule.get("count", null)) == TYPE_INT
-			and rule["count"] >= 0
+	var rule_type = rule.get("type", "")
+	if rule_type == "has_item":
+		return (
+			_is_nonempty_string(rule.get("item_id", null))
+			and _is_nonnegative_integer(rule.get("count", null))
 		)
+	if not STRUCTURED_RULE_FIELDS.has(rule_type):
+		return false
+	for field in STRUCTURED_RULE_FIELDS[rule_type]:
+		if not rule.has(field):
+			return false
+		if field in ["count", "duration_minutes"]:
+			if not _is_nonnegative_integer(rule[field]):
+				return false
+		elif not _is_nonempty_string(rule[field]):
+			return false
+	return true
 
 
 func _completion_rules_are_satisfied(rules: Array, inventory: Variant) -> bool:
@@ -141,6 +178,8 @@ func _completion_rules_are_satisfied(rules: Array, inventory: Variant) -> bool:
 		return false
 
 	for rule in rules:
+		if rule["type"] not in ["has_item", "inventory_count"]:
+			return false
 		var item_count = inventory.get(rule["item_id"], 0)
 		if (
 			typeof(item_count) != TYPE_INT
@@ -149,6 +188,14 @@ func _completion_rules_are_satisfied(rules: Array, inventory: Variant) -> bool:
 		):
 			return false
 	return true
+
+
+func _is_nonempty_string(value: Variant) -> bool:
+	return typeof(value) == TYPE_STRING and not value.is_empty()
+
+
+func _is_nonnegative_integer(value: Variant) -> bool:
+	return typeof(value) == TYPE_INT and value >= 0
 
 
 func _zero_reward(reward: Dictionary) -> Dictionary:
