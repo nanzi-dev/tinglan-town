@@ -113,11 +113,34 @@ func _update_path_velocity() -> void:
 
 
 func _move_and_constrain_to_navigation() -> void:
+	var requested_velocity := velocity
 	var previous_position := global_position
 	move_and_slide()
 	var navigation_map := get_world_3d().navigation_map
 	if NavigationServer3D.map_get_iteration_id(navigation_map) == 0:
 		return
+	if _is_on_navigation(navigation_map):
+		return
+
+	global_position = previous_position
+	var accepted_velocity := Vector3.ZERO
+	for axis_velocity in [
+		Vector3(requested_velocity.x, 0.0, 0.0),
+		Vector3(0.0, 0.0, requested_velocity.z),
+	]:
+		if axis_velocity.is_zero_approx():
+			continue
+		var axis_start := global_position
+		velocity = axis_velocity
+		move_and_slide()
+		if _is_on_navigation(navigation_map):
+			accepted_velocity += axis_velocity
+		else:
+			global_position = axis_start
+	velocity = accepted_velocity
+
+
+func _is_on_navigation(navigation_map: RID) -> bool:
 	var closest_point := NavigationServer3D.map_get_closest_point(
 		navigation_map,
 		global_position,
@@ -126,7 +149,4 @@ func _move_and_constrain_to_navigation() -> void:
 		closest_point.x,
 		closest_point.z,
 	).distance_to(Vector2(global_position.x, global_position.z))
-	if horizontal_distance <= navigation_tolerance:
-		return
-	global_position = previous_position
-	velocity = Vector3.ZERO
+	return horizontal_distance <= navigation_tolerance

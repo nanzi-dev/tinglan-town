@@ -151,6 +151,50 @@ func test_keyboard_movement_cannot_enter_a_building() -> void:
 	assert_true(_town.is_point_navigable(_player.global_position))
 
 
+func test_keyboard_movement_slides_along_a_building_navigation_boundary() -> void:
+	if _player == null or _town == null:
+		return
+	var walls := _town.get_node_or_null(
+		"Districts/WestLife/PlayerHome/Walls",
+	) as CSGBox3D
+	assert_not_null(walls)
+	if walls == null:
+		return
+
+	var start := Vector3(
+		walls.global_position.x,
+		0.05,
+		walls.global_position.z + walls.size.z * 0.5 + 0.7,
+	)
+	_player.global_position = start
+	assert_true(_town.is_point_navigable(start))
+
+	Input.action_press("move_up")
+	Input.action_press("move_right")
+	await wait_physics_frames(30)
+	Input.action_release("move_up")
+	Input.action_release("move_right")
+
+	var walls_local_position := walls.to_local(_player.global_position)
+	assert_gte(
+		walls_local_position.z,
+		walls.size.z * 0.5 + 0.45,
+		"Sliding must preserve the navigation agent's building margin.",
+	)
+	assert_true(_town.is_point_navigable(_player.global_position))
+	var tangential_distance := _player.global_position.x - start.x
+	assert_gt(
+		tangential_distance,
+		1.5,
+		"Diagonal input must retain its legal tangential movement.",
+	)
+	assert_lt(
+		tangential_distance,
+		2.3,
+		"Boundary sliding must not boost diagonal input to full axis speed.",
+	)
+
+
 func test_keyboard_movement_can_cross_the_real_bridge() -> void:
 	if _player == null or _town == null:
 		return
