@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/town/town.tscn" id="1_town"]
 [ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scripts/presentation/isometric_camera.gd" id="3_camera"]
 [ext_resource type="Script" path="res://scripts/services/location_manager.gd" id="4_location"]
 [ext_resource type="PackedScene" path="res://scenes/interiors/interior.tscn" id="5_interior"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="6_hud"]
 
 [node name="Main" type="Node3D"]
 
@@ -25,3 +26,5 @@ target_path = NodePath("../Player")
 [node name="LocationManager" type="Node" parent="."]
 script = ExtResource("4_location")
 interior_scene = ExtResource("5_interior")
+
+[node name="HUD" parent="." instance=ExtResource("6_hud")]

@@ -1,0 +1,211 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/task_board_panel.tscn" id="2_task_board"]
+[ext_resource type="PackedScene" path="res://scenes/ui/relationship_panel.tscn" id="3_relationship"]
+[ext_resource type="PackedScene" path="res://scenes/ui/inventory_panel.tscn" id="4_inventory"]
+
+[node name="HUD" type="CanvasLayer"]
+process_mode = 3
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopStatus" type="PanelContainer" parent="Root"]
+layout_mode = 1
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 610.0
+offset_bottom = 76.0
+
+[node name="Margin" type="MarginContainer" parent="Root/TopStatus"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="StatusRow" type="HBoxContainer" parent="Root/TopStatus/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="DateTimeLabel" type="Label" parent="Root/TopStatus/Margin/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "春季第 1 日  07:00"
+vertical_alignment = 1
+
+[node name="StatusSeparator" type="VSeparator" parent="Root/TopStatus/Margin/StatusRow"]
+layout_mode = 2
+
+[node name="WeatherLabel" type="Label" parent="Root/TopStatus/Margin/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "天气：晴"
+vertical_alignment = 1
+
+[node name="MemoriaStatus" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -316.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 76.0
+grow_horizontal = 0
+
+[node name="Margin" type="MarginContainer" parent="Root/MemoriaStatus"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="MemoriaStatusLabel" type="Label" parent="Root/MemoriaStatus/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Memoria：本地模式"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="PausePanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 520.0
+offset_top = 88.0
+offset_right = -520.0
+offset_bottom = 138.0
+grow_horizontal = 2
+
+[node name="PauseBanner" type="Label" parent="Root/PausePanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.663, 0.239, 0.208, 1)
+theme_override_font_sizes/font_size = 20
+text = "游戏已暂停"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TaskSummary" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -366.0
+offset_top = 92.0
+offset_right = -16.0
+offset_bottom = 160.0
+grow_horizontal = 0
+
+[node name="Margin" type="MarginContainer" parent="Root/TaskSummary"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="TaskSummaryLabel" type="Label" parent="Root/TaskSummary/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "当前任务：暂无进行中的任务"
+autowrap_mode = 2
+vertical_alignment = 1
+
+[node name="BottomBar" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -84.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="Root/BottomBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="BottomRow" type="HBoxContainer" parent="Root/BottomBar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InteractionPrompt" type="Label" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "靠近居民或设施进行交互"
+vertical_alignment = 1
+
+[node name="QuickSlotOne" type="Label" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="QuickSlotTwo" type="Label" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="QuickSlotThree" type="Label" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TaskButton" type="Button" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 44)
+layout_mode = 2
+focus_mode = 2
+text = "公告板"
+
+[node name="RelationshipButton" type="Button" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 44)
+layout_mode = 2
+focus_mode = 2
+text = "关系"
+
+[node name="InventoryButton" type="Button" parent="Root/BottomBar/Margin/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 44)
+layout_mode = 2
+focus_mode = 2
+text = "背包"
+
+[node name="TaskBoardPanel" parent="Root" instance=ExtResource("2_task_board")]
+visible = false
+
+[node name="RelationshipPanel" parent="Root" instance=ExtResource("3_relationship")]
+visible = false
+
+[node name="InventoryPanel" parent="Root" instance=ExtResource("4_inventory")]
+visible = false

@@ -1,0 +1,125 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/relationship_panel.gd" id="1_relationship"]
+
+[node name="RelationshipPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_relationship")
+unique_name_in_owner = true
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.12, 0.11, 0.72)
+
+[node name="Surface" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.12
+anchor_top = 0.08
+anchor_right = 0.88
+anchor_bottom = 0.92
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Surface"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="Main" type="VBoxContainer" parent="Surface/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="Surface/Margin/Main"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Surface/Margin/Main/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 26
+text = "居民关系档案"
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Surface/Margin/Main/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 44)
+layout_mode = 2
+focus_mode = 2
+text = "关闭"
+
+[node name="HeaderSeparator" type="HSeparator" parent="Surface/Margin/Main"]
+layout_mode = 2
+
+[node name="Content" type="HBoxContainer" parent="Surface/Margin/Main"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 20
+
+[node name="ResidentColumn" type="VBoxContainer" parent="Surface/Margin/Main/Content"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ResidentColumnTitle" type="Label" parent="Surface/Margin/Main/Content/ResidentColumn"]
+layout_mode = 2
+text = "居民"
+
+[node name="ResidentList" type="ItemList" parent="Surface/Margin/Main/Content/ResidentColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 2
+select_mode = 0
+
+[node name="ColumnSeparator" type="VSeparator" parent="Surface/Margin/Main/Content"]
+layout_mode = 2
+
+[node name="Profile" type="VBoxContainer" parent="Surface/Margin/Main/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="ResidentNameLabel" type="Label" parent="Surface/Margin/Main/Content/Profile"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "尚未选择居民"
+
+[node name="StageCaption" type="Label" parent="Surface/Margin/Main/Content/Profile"]
+layout_mode = 2
+text = "当前关系"
+
+[node name="StageLabel" type="Label" parent="Surface/Margin/Main/Content/Profile"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.545, 0.388, 1)
+theme_override_font_sizes/font_size = 22
+text = "初识"
+
+[node name="ProfileSeparator" type="HSeparator" parent="Surface/Margin/Main/Content/Profile"]
+layout_mode = 2
+
+[node name="ReasonTitle" type="Label" parent="Surface/Margin/Main/Content/Profile"]
+layout_mode = 2
+text = "近期变化原因"
+
+[node name="ReasonList" type="VBoxContainer" parent="Surface/Margin/Main/Content/Profile"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
