@@ -13,6 +13,7 @@ const BRIDGE_IDS := [
 const RIVER_ROTATION_DEGREES := 18.0
 const NAVIGATION_RIVER_HALF_WIDTH := 3.75
 const NAVIGATION_CELL_SIZE := 0.5
+const NAVIGATION_MERGE_RASTERIZER_CELL_SCALE := 0.01
 const NAVIGATION_MIN := Vector2(-24.0, -18.0)
 const NAVIGATION_MAX := Vector2(24.0, 18.0)
 const NAVIGATION_BUILDING_MARGIN := 0.45
@@ -145,13 +146,7 @@ func _build_navigation() -> void:
 				south_east,
 				south_west,
 			]
-			if _navigation_cell_is_allowed(corners):
-				_add_navigation_quad(
-					north_west,
-					north_east,
-					south_east,
-					south_west,
-				)
+			_add_navigation_cell(corners)
 
 	var navigation_mesh := NavigationMesh.new()
 	navigation_mesh.agent_height = 1.8
@@ -159,20 +154,18 @@ func _build_navigation() -> void:
 	navigation_mesh.vertices = _navigation_vertices
 	for polygon in _navigation_polygons:
 		navigation_mesh.add_polygon(polygon)
+	var navigation_map := get_world_3d().navigation_map
+	NavigationServer3D.map_set_merge_rasterizer_cell_scale(
+		navigation_map,
+		NAVIGATION_MERGE_RASTERIZER_CELL_SCALE,
+	)
 	_navigation_region.navigation_mesh = navigation_mesh
-	NavigationServer3D.map_force_update(get_world_3d().navigation_map)
+	NavigationServer3D.map_force_update(navigation_map)
 
 
-func _navigation_cell_is_allowed(corners: Array[Vector2]) -> bool:
+func _add_navigation_cell(corners: Array[Vector2]) -> void:
 	if _cell_overlaps_building(corners):
-		return false
-	var touches_river := false
-	for corner in corners:
-		if absf(_to_river_local(corner).x) < NAVIGATION_RIVER_HALF_WIDTH:
-			touches_river = true
-			break
-	if not touches_river:
-		return true
+		return
 	for bridge_id in BRIDGE_IDS:
 		var all_corners_on_bridge := true
 		for corner in corners:
@@ -180,8 +173,85 @@ func _navigation_cell_is_allowed(corners: Array[Vector2]) -> bool:
 				all_corners_on_bridge = false
 				break
 		if all_corners_on_bridge:
-			return true
-	return false
+			_add_navigation_quad(
+				corners[0],
+				corners[1],
+				corners[2],
+				corners[3],
+			)
+			return
+
+	var all_corners_west := true
+	var all_corners_east := true
+	for corner in corners:
+		var river_x := _to_river_local(corner).x
+		all_corners_west = (
+			all_corners_west
+			and river_x <= -NAVIGATION_RIVER_HALF_WIDTH
+		)
+		all_corners_east = (
+			all_corners_east
+			and river_x >= NAVIGATION_RIVER_HALF_WIDTH
+		)
+	if all_corners_west or all_corners_east:
+		_add_navigation_quad(
+			corners[0],
+			corners[1],
+			corners[2],
+			corners[3],
+		)
+		return
+
+	_add_navigation_polygon(_clip_to_river_bank(
+		corners,
+		-NAVIGATION_RIVER_HALF_WIDTH,
+		true,
+	))
+	_add_navigation_polygon(_clip_to_river_bank(
+		corners,
+		NAVIGATION_RIVER_HALF_WIDTH,
+		false,
+	))
+
+
+func _clip_to_river_bank(
+	polygon: Array[Vector2],
+	river_x: float,
+	keep_less: bool,
+) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	var previous := polygon[-1]
+	var previous_x := _to_river_local(previous).x
+	var previous_inside := (
+		previous_x <= river_x if keep_less else previous_x >= river_x
+	)
+	for current in polygon:
+		var current_x := _to_river_local(current).x
+		var current_inside := (
+			current_x <= river_x if keep_less else current_x >= river_x
+		)
+		if current_inside != previous_inside:
+			var weight := (river_x - previous_x) / (current_x - previous_x)
+			_append_unique_navigation_point(
+				result,
+				previous.lerp(current, weight),
+			)
+		if current_inside:
+			_append_unique_navigation_point(result, current)
+		previous = current
+		previous_x = current_x
+		previous_inside = current_inside
+	if result.size() > 1 and result[0].is_equal_approx(result[-1]):
+		result.pop_back()
+	return result
+
+
+func _append_unique_navigation_point(
+	points: Array[Vector2],
+	point: Vector2,
+) -> void:
+	if points.is_empty() or not points[-1].is_equal_approx(point):
+		points.append(point)
 
 
 func _cell_overlaps_building(corners: Array[Vector2]) -> bool:
@@ -247,6 +317,15 @@ func _add_navigation_quad(
 		south_east_index,
 		south_west_index,
 	]))
+
+
+func _add_navigation_polygon(points: Array[Vector2]) -> void:
+	if points.size() < 3:
+		return
+	var polygon := PackedInt32Array()
+	for point in points:
+		polygon.append(_navigation_vertex(point.x, point.y))
+	_navigation_polygons.append(polygon)
 
 
 func _river_center_x(z_position: float) -> float:

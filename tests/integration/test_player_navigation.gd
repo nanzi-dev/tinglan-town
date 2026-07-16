@@ -208,12 +208,35 @@ func test_keyboard_movement_slides_along_the_rotated_riverbank() -> void:
 	assert_true(_town.is_point_navigable(start))
 
 	var samples: Array[Vector3] = []
+	var previous_sample := start
+	var requested_direction := Vector3(1.0, 0.0, -1.0).normalized()
+	var physics_delta := 1.0 / Engine.physics_ticks_per_second
+	var maximum_step: float = _player.move_speed * physics_delta
+	var step_tolerance := 0.001
 	Input.action_press("move_right")
 	Input.action_press("move_up")
 	for frame in range(32):
-		await wait_physics_frames(1)
+		await get_tree().physics_frame
 		var sample := _player.global_position
 		samples.append(sample)
+		var horizontal_step := sample - previous_sample
+		horizontal_step.y = 0.0
+		assert_lte(
+			horizontal_step.length(),
+			maximum_step + step_tolerance,
+			(
+				"Physics frame %d moved %.6f, above the %.6f input budget."
+				% [frame, horizontal_step.length(), maximum_step]
+			),
+		)
+		assert_gte(
+			horizontal_step.dot(requested_direction),
+			-step_tolerance,
+			(
+				"Physics frame %d moved against input by %.6f."
+				% [frame, horizontal_step.dot(requested_direction)]
+			),
+		)
 		assert_true(
 			_town.is_point_navigable(sample),
 			"Player left navigation on physics frame %d." % frame,
@@ -224,6 +247,7 @@ func test_keyboard_movement_slides_along_the_rotated_riverbank() -> void:
 			river.size.x * 0.5,
 			"Player entered the visible river on physics frame %d." % frame,
 		)
+		previous_sample = sample
 	Input.action_release("move_right")
 	Input.action_release("move_up")
 	assert_gt(
@@ -237,18 +261,34 @@ func test_keyboard_movement_slides_along_the_rotated_riverbank() -> void:
 	var boundary_progress := (
 		samples[-1] - samples[11]
 	).dot(expected_tangent)
+	var tangent_speed: float = (
+		requested_direction.dot(expected_tangent) * _player.move_speed
+	)
+	var boundary_interval_count := samples.size() - 1 - 11
+	var expected_boundary_progress: float = (
+		tangent_speed * physics_delta * boundary_interval_count
+	)
 	assert_gt(
 		boundary_progress,
-		1.0,
+		expected_boundary_progress * 0.95,
 		"Movement must keep its legal tangent after reaching the riverbank.",
+	)
+	assert_lte(
+		boundary_progress,
+		expected_boundary_progress + step_tolerance,
+		"Riverbank sliding must not boost the legal tangent speed.",
 	)
 
 	var tail_progress := (
 		samples[-1] - samples[-9]
 	).dot(expected_tangent)
+	var tail_interval_count := 8
+	var expected_tail_progress: float = (
+		tangent_speed * physics_delta * tail_interval_count
+	)
 	assert_gt(
 		tail_progress,
-		0.25,
+		expected_tail_progress * 0.95,
 		"Movement must not freeze after settling on the riverbank.",
 	)
 
@@ -295,5 +335,6 @@ func test_keyboard_movement_can_cross_the_real_bridge() -> void:
 
 func _hold_action_for_frames(action: String, frames: int) -> void:
 	Input.action_press(action)
-	await wait_physics_frames(frames)
+	for frame in range(frames):
+		await get_tree().physics_frame
 	Input.action_release(action)

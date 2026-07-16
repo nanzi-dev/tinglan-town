@@ -3,7 +3,7 @@ extends CharacterBody3D
 
 @export var move_speed := 6.0
 @export var path_arrival_distance := 0.25
-@export var navigation_tolerance := 0.06
+@export var navigation_tolerance := 0.05
 @export var boundary_probe_distance := 2.0
 
 @onready var _navigation_agent: NavigationAgent3D = $NavigationAgent3D
@@ -116,14 +116,30 @@ func _update_path_velocity() -> void:
 func _move_and_constrain_to_navigation(delta: float) -> void:
 	var requested_velocity := velocity
 	var previous_position := global_position
+	var horizontal_requested_velocity := Vector3(
+		requested_velocity.x,
+		0.0,
+		requested_velocity.z,
+	)
+	var maximum_displacement := horizontal_requested_velocity.length() * delta
 	move_and_slide()
+	var moved_position := global_position
 	var navigation_map := get_world_3d().navigation_map
 	if NavigationServer3D.map_get_iteration_id(navigation_map) == 0:
 		return
 	if _is_on_navigation(navigation_map):
-		return
+		var moved_displacement := global_position - previous_position
+		moved_displacement.y = 0.0
+		if _try_navigation_displacement(
+			navigation_map,
+			previous_position,
+			moved_displacement,
+			requested_velocity,
+			maximum_displacement,
+			delta,
+		):
+			return
 
-	var moved_position := global_position
 	var closest_point := NavigationServer3D.map_get_closest_point(
 		navigation_map,
 		moved_position,
@@ -135,14 +151,7 @@ func _move_and_constrain_to_navigation(delta: float) -> void:
 	)
 	var projected_displacement := projected_position - previous_position
 	projected_displacement.y = 0.0
-	var maximum_displacement := (
-		Vector2(requested_velocity.x, requested_velocity.z).length() * delta
-	)
-	var requested_direction := Vector3(
-		requested_velocity.x,
-		0.0,
-		requested_velocity.z,
-	).normalized()
+	var requested_direction := horizontal_requested_velocity.normalized()
 	var probe_position := (
 		previous_position + requested_direction * boundary_probe_distance
 	)
@@ -161,13 +170,14 @@ func _move_and_constrain_to_navigation(delta: float) -> void:
 		and projected_displacement.dot(requested_velocity) > 0.0
 		and projected_displacement.dot(boundary_direction) > 0.0
 	):
-		if projected_displacement.length() > maximum_displacement:
-			projected_displacement = (
-				projected_displacement.normalized() * maximum_displacement
-			)
-		global_position = previous_position + projected_displacement
-		if _is_on_navigation(navigation_map):
-			velocity = projected_displacement / delta
+		if _try_navigation_displacement(
+			navigation_map,
+			previous_position,
+			projected_displacement,
+			requested_velocity,
+			maximum_displacement,
+			delta,
+		):
 			return
 
 	global_position = previous_position
@@ -179,54 +189,66 @@ func _move_and_constrain_to_navigation(delta: float) -> void:
 		velocity = Vector3.ZERO
 		return
 
-	var boundary_path := NavigationServer3D.map_get_path(
+	var slide_displacement := boundary_direction * slide_speed * delta
+	if _try_navigation_displacement(
 		navigation_map,
 		previous_position,
-		probe_closest_point,
-		true,
-	)
-	var slide_position := _position_along_path(
-		boundary_path,
-		slide_speed * delta,
-		previous_position.y,
-	)
-	var slide_displacement := slide_position - previous_position
-	slide_displacement.y = 0.0
-	if (
-		slide_displacement.length()
-		> maximum_displacement + navigation_tolerance
+		slide_displacement,
+		requested_velocity,
+		maximum_displacement,
+		delta,
 	):
-		velocity = Vector3.ZERO
 		return
-	global_position = previous_position + slide_displacement
+	velocity = Vector3.ZERO
+
+
+func _try_navigation_displacement(
+	navigation_map: RID,
+	previous_position: Vector3,
+	candidate_displacement: Vector3,
+	requested_velocity: Vector3,
+	maximum_displacement: float,
+	delta: float,
+) -> bool:
+	var accepted_displacement := candidate_displacement
+	accepted_displacement.y = 0.0
+	var candidate_position := previous_position + accepted_displacement
+	var closest_point := NavigationServer3D.map_get_closest_point(
+		navigation_map,
+		candidate_position,
+	)
+	var navigation_offset := candidate_position - closest_point
+	navigation_offset.y = 0.0
+	var allowed_navigation_offset := maxf(
+		navigation_tolerance - 0.0001,
+		0.0,
+	)
+	if navigation_offset.length() > allowed_navigation_offset:
+		candidate_position = Vector3(
+			closest_point.x,
+			previous_position.y,
+			closest_point.z,
+		)
+		if not navigation_offset.is_zero_approx():
+			candidate_position += (
+				navigation_offset.normalized() * allowed_navigation_offset
+			)
+		accepted_displacement = candidate_position - previous_position
+		accepted_displacement.y = 0.0
+	if accepted_displacement.length() > maximum_displacement:
+		accepted_displacement = (
+			accepted_displacement.normalized() * maximum_displacement
+		)
+	if accepted_displacement.dot(requested_velocity) < 0.0:
+		global_position = previous_position
+		return false
+
+	global_position = previous_position + accepted_displacement
 	if not _is_on_navigation(navigation_map):
 		global_position = previous_position
-		velocity = Vector3.ZERO
-		return
-	velocity = slide_displacement / delta
-
-
-func _position_along_path(
-	path: PackedVector3Array,
-	distance: float,
-	height: float,
-) -> Vector3:
-	if path.is_empty():
-		return global_position
-	var previous_point := path[0]
-	for index in range(1, path.size()):
-		var next_point := path[index]
-		var segment := next_point - previous_point
-		segment.y = 0.0
-		if segment.length() >= distance:
-			var result := previous_point + segment.normalized() * distance
-			result.y = height
-			return result
-		distance -= segment.length()
-		previous_point = next_point
-	var result := path[-1]
-	result.y = height
-	return result
+		return false
+	velocity = accepted_displacement / delta
+	return true
 
 
 func _is_on_navigation(navigation_map: RID) -> bool:
