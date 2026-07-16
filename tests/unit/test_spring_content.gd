@@ -1,0 +1,515 @@
+extends GutTest
+
+const CONTENT_REPOSITORY_PATH := "res://scripts/core/content_repository.gd"
+const CONTENT_FILE_NAMES := [
+	"characters.json",
+	"schedules.json",
+	"tasks.json",
+	"locations.json",
+	"community_project.json",
+	"festival.json",
+]
+
+var _fixture_dir: String
+
+
+func before_each() -> void:
+	_fixture_dir = "user://spring_content_tests/%d" % Time.get_ticks_usec()
+
+
+func after_each() -> void:
+	for file_name in CONTENT_FILE_NAMES:
+		DirAccess.remove_absolute(
+			ProjectSettings.globalize_path(_fixture_dir.path_join(file_name)),
+		)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(_fixture_dir))
+
+
+func test_spring_content_matches_the_approved_scope() -> void:
+	var repository = _new_repository()
+	if repository == null:
+		return
+
+	assert_true(repository.load_spring())
+	assert_eq(repository.validation_errors, [])
+	assert_eq(repository.characters.size(), 10)
+	assert_eq(
+		repository.locations.filter(
+			func(item): return item["is_interior"],
+		).size(),
+		10,
+	)
+	assert_eq(repository.task_templates.size(), 20)
+	assert_eq(
+		repository.characters.filter(
+			func(item): return item["romanceable"],
+		).size(),
+		2,
+	)
+
+
+func test_spring_characters_match_the_approved_design() -> void:
+	var repository = _loaded_repository()
+	if repository == null:
+		return
+
+	var expected := {
+		"shen-yan": {
+			"name": "沈砚",
+			"age": 29,
+			"role": "书屋主人",
+			"traits": ["克制", "敏锐", "重承诺"],
+			"romanceable": true,
+		},
+		"lin-xi": {
+			"name": "林汐",
+			"age": 27,
+			"role": "茶馆掌柜",
+			"traits": ["温和", "好奇", "善调停"],
+			"romanceable": true,
+		},
+		"zhou-he": {
+			"name": "周禾",
+			"age": 34,
+			"role": "诊所医师",
+			"traits": ["稳健", "直接", "有边界"],
+			"romanceable": false,
+		},
+		"lu-qiao": {
+			"name": "陆桥",
+			"age": 42,
+			"role": "木作匠人",
+			"traits": ["务实", "固执", "重手艺"],
+			"romanceable": false,
+		},
+		"su-wan": {
+			"name": "苏晚",
+			"age": 23,
+			"role": "杂货铺店员",
+			"traits": ["活泼", "细心", "怕冲突"],
+			"romanceable": false,
+		},
+		"gu-yun": {
+			"name": "顾云",
+			"age": 31,
+			"role": "渔人",
+			"traits": ["寡言", "可靠", "念旧"],
+			"romanceable": false,
+		},
+		"tang-yu": {
+			"name": "唐雨",
+			"age": 19,
+			"role": "社区中心助理",
+			"traits": ["热情", "理想化", "易分心"],
+			"romanceable": false,
+		},
+		"qiao-zhen": {
+			"name": "乔贞",
+			"age": 56,
+			"role": "居民代表",
+			"traits": ["审慎", "公平", "记性好"],
+			"romanceable": false,
+		},
+		"he-miao": {
+			"name": "何苗",
+			"age": 38,
+			"role": "菜圃经营者",
+			"traits": ["爽朗", "勤勉", "护短"],
+			"romanceable": false,
+		},
+		"xu-deng": {
+			"name": "徐灯",
+			"age": 46,
+			"role": "船夫",
+			"traits": ["幽默", "观察入微", "避争执"],
+			"romanceable": false,
+		},
+	}
+	var by_id := {}
+	for character in repository.characters:
+		by_id[character["character_id"]] = character
+
+	assert_eq(by_id.size(), expected.size())
+	for character_id in expected:
+		var character: Dictionary = by_id[character_id]
+		for field in expected[character_id]:
+			assert_eq(
+				character[field],
+				expected[character_id][field],
+				"%s.%s differed from the approved design." % [
+					character_id,
+					field,
+				],
+			)
+		assert_false(character["home_location_id"].is_empty())
+		assert_eq(character["schedule_id"], character_id)
+		assert_gt(character["capabilities"].size(), 0)
+		assert_eq(typeof(character["personal_request"]), TYPE_DICTIONARY)
+
+
+func test_locations_and_schedules_are_ready_for_later_tasks() -> void:
+	var repository = _loaded_repository()
+	if repository == null:
+		return
+
+	var expected_interior_ids := [
+		"bookshop",
+		"clinic",
+		"community_center",
+		"general_store",
+		"gu_home",
+		"player_home",
+		"qiao_home",
+		"shen_home",
+		"tea_house",
+		"workshop",
+	]
+	var interior_ids := []
+	var location_ids := {}
+	for location in repository.locations:
+		location_ids[location["location_id"]] = true
+		if location["is_interior"]:
+			interior_ids.append(location["location_id"])
+			assert_eq(typeof(location["dimensions"]), TYPE_DICTIONARY)
+			assert_eq(typeof(location["floor_color"]), TYPE_STRING)
+			assert_eq(typeof(location["wall_color"]), TYPE_STRING)
+			assert_eq(typeof(location["furniture_layout"]), TYPE_ARRAY)
+			assert_eq(typeof(location["interaction_points"]), TYPE_ARRAY)
+	interior_ids.sort()
+
+	assert_eq(repository.locations.size(), 11)
+	assert_eq(interior_ids, expected_interior_ids)
+	assert_true(location_ids.has("town_outdoors"))
+	assert_false(
+		repository.locations.filter(
+			func(item): return item["location_id"] == "town_outdoors",
+		)[0]["is_interior"],
+	)
+	assert_eq(repository.schedules.size(), 10)
+
+	var character_ids := {}
+	for character in repository.characters:
+		character_ids[character["character_id"]] = character
+	for schedule in repository.schedules:
+		var character: Dictionary = character_ids[schedule["character_id"]]
+		var scheduled_locations := []
+		for entry in schedule["entries"]:
+			assert_true(location_ids.has(entry["location_id"]))
+			assert_lt(entry["start_minute"], entry["end_minute"])
+			scheduled_locations.append(entry["location_id"])
+		assert_true(scheduled_locations.has(character["home_location_id"]))
+		assert_true(scheduled_locations.has(character["work_location_id"]))
+
+
+func test_tasks_project_and_festival_match_the_approved_design() -> void:
+	var repository = _loaded_repository()
+	if repository == null:
+		return
+
+	var category_counts := {}
+	for task in repository.task_templates:
+		var category: String = task["category"]
+		category_counts[category] = category_counts.get(category, 0) + 1
+		for field in [
+			"template_id",
+			"issuer_id",
+			"objective",
+			"location_id",
+			"deadline",
+			"reward",
+			"completion_rules",
+			"description",
+		]:
+			assert_true(task.has(field), "%s lacks %s." % [task.get("template_id", "?"), field])
+
+	assert_eq(category_counts, {
+		"delivery": 4,
+		"festival_preparation": 1,
+		"gather": 5,
+		"investigation": 2,
+		"repair": 3,
+		"social_promise": 2,
+		"visit": 3,
+	})
+	assert_eq(repository.community_project["name"], "修复听雨桥")
+	assert_eq(
+		repository.community_project["stages"].map(
+			func(stage): return stage["stage_id"],
+		),
+		["proposed", "collecting", "voting", "construction", "completed"],
+	)
+	assert_eq(repository.festival["name"], "上巳水灯会")
+	assert_eq(repository.festival["season"], "spring")
+	assert_eq(repository.festival["day"], 12)
+	assert_eq(repository.festival["start_minute"], 1080)
+	assert_eq(repository.festival["preparation_branches"].size(), 3)
+
+
+func test_validation_reports_schema_and_duplicate_errors_in_order() -> void:
+	_prepare_fixture()
+	var characters := _read_fixture_json("characters.json")
+	characters["characters"].append(
+		characters["characters"][4].duplicate(true),
+	)
+	characters["characters"][2].erase("name")
+	characters["characters"][3]["age"] = "42"
+	_write_fixture_json("characters.json", characters)
+
+	var locations := _read_fixture_json("locations.json")
+	locations["locations"][0]["dimensions"] = []
+	_write_fixture_json("locations.json", locations)
+
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][0]["objective"] = []
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"characters: expected 10 entries, got 11",
+		"characters[2].name: missing required field",
+		"characters[3].age: expected integer",
+		"characters[10].character_id: duplicate id 'su-wan'",
+		"locations[0].dimensions: expected object",
+		"task_templates[0].objective: expected object",
+	])
+
+
+func test_validation_rejects_duplicate_task_template_ids() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][1]["template_id"] = (
+		tasks["task_templates"][0]["template_id"]
+	)
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[1].template_id: duplicate id "
+			+ "'gather-spring-herbs'"
+		),
+	])
+
+
+func test_validation_rejects_unknown_references_and_domain_rules() -> void:
+	_prepare_fixture()
+	var characters := _read_fixture_json("characters.json")
+	characters["characters"][0]["age"] = 17
+	_write_fixture_json("characters.json", characters)
+
+	var schedules := _read_fixture_json("schedules.json")
+	schedules["schedules"][0]["entries"][0]["location_id"] = "missing-place"
+	_write_fixture_json("schedules.json", schedules)
+
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][0]["issuer_id"] = "missing-person"
+	tasks["task_templates"][1]["location_id"] = "missing-place"
+	_write_fixture_json("tasks.json", tasks)
+
+	var project := _read_fixture_json("community_project.json")
+	project["community_project"]["stages"].pop_back()
+	_write_fixture_json("community_project.json", project)
+
+	var festival := _read_fixture_json("festival.json")
+	festival["festival"]["season"] = "summer"
+	festival["festival"]["day"] = 11
+	_write_fixture_json("festival.json", festival)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		"characters[0].age: romanceable characters must be at least 18",
+		"schedules[0].entries[0].location_id: unknown location 'missing-place'",
+		"task_templates[0].issuer_id: unknown character 'missing-person'",
+		"task_templates[1].location_id: unknown location 'missing-place'",
+		"community_project.stages: expected 5 stages, got 4",
+		"festival: expected spring day 12, got summer day 11",
+	])
+
+
+func test_validation_rejects_wrong_project_stage_order() -> void:
+	_prepare_fixture()
+	var project := _read_fixture_json("community_project.json")
+	var stages: Array = project["community_project"]["stages"]
+	var second_stage = stages[1]
+	stages[1] = stages[2]
+	stages[2] = second_stage
+	_write_fixture_json("community_project.json", project)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"community_project.stages: expected ordered stages "
+			+ "[proposed, collecting, voting, construction, completed]"
+		),
+	])
+
+
+func test_malformed_json_failure_is_atomic_and_alias_safe() -> void:
+	_prepare_fixture()
+	var repository = _new_repository(_fixture_dir)
+	assert_true(repository.load_spring())
+
+	var exposed_characters: Array = repository.characters
+	exposed_characters[0]["name"] = "外部改动"
+	var changed_characters := _read_fixture_json("characters.json")
+	changed_characters["characters"][0]["name"] = "半加载数据"
+	_write_fixture_json("characters.json", changed_characters)
+	_write_fixture_text("schedules.json", "{\"schedules\":[")
+
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors.size(), 1)
+	assert_true(
+		repository.validation_errors[0].begins_with(
+			"schedules.json:0: invalid JSON:",
+		),
+	)
+	assert_eq(repository.characters[0]["name"], "沈砚")
+
+	var exposed_errors: Array = repository.validation_errors
+	exposed_errors.clear()
+	assert_eq(repository.validation_errors.size(), 1)
+
+
+func test_validation_failure_preserves_the_last_successful_snapshot() -> void:
+	_prepare_fixture()
+	var repository = _new_repository(_fixture_dir)
+	assert_true(repository.load_spring())
+
+	var exposed_tasks: Array = repository.task_templates
+	exposed_tasks[0]["issuer_id"] = "external-change"
+	var changed_characters := _read_fixture_json("characters.json")
+	changed_characters["characters"][0]["name"] = "半加载数据"
+	_write_fixture_json("characters.json", changed_characters)
+	var changed_tasks := _read_fixture_json("tasks.json")
+	changed_tasks["task_templates"][0]["issuer_id"] = "missing-person"
+	_write_fixture_json("tasks.json", changed_tasks)
+
+	assert_false(repository.load_spring())
+	assert_true(
+		repository.validation_errors.has(
+			"task_templates[0].issuer_id: unknown character 'missing-person'",
+		),
+	)
+	assert_eq(repository.characters[0]["name"], "沈砚")
+	assert_eq(repository.task_templates[0]["issuer_id"], "zhou-he")
+
+
+func test_all_public_content_values_are_deep_copy_snapshots() -> void:
+	var repository = _loaded_repository()
+	if repository == null:
+		return
+
+	var exposed_schedules: Array = repository.schedules
+	var exposed_locations: Array = repository.locations
+	var exposed_project: Dictionary = repository.community_project
+	var exposed_festival: Dictionary = repository.festival
+	exposed_schedules[0]["entries"][0]["location_id"] = "external-change"
+	exposed_locations[0]["dimensions"]["width"] = 999
+	exposed_project["stages"][0]["stage_id"] = "external-change"
+	exposed_festival["preparation_branches"][0]["branch_id"] = "external-change"
+
+	assert_eq(
+		repository.schedules[0]["entries"][0]["location_id"],
+		"shen_home",
+	)
+	assert_eq(repository.locations[0]["dimensions"]["width"], 8)
+	assert_eq(
+		repository.community_project["stages"][0]["stage_id"],
+		"proposed",
+	)
+	assert_eq(
+		repository.festival["preparation_branches"][0]["branch_id"],
+		"low",
+	)
+
+
+func _new_repository(base_path: String = "res://content/spring"):
+	var repository_script = load(CONTENT_REPOSITORY_PATH)
+	assert_not_null(
+		repository_script,
+		"ContentRepository script must exist.",
+	)
+	if repository_script == null:
+		return null
+	return repository_script.new(base_path)
+
+
+func _loaded_repository():
+	var repository = _new_repository()
+	if repository == null:
+		return null
+	var loaded: bool = repository.load_spring()
+	assert_true(loaded)
+	if not loaded:
+		return null
+	return repository
+
+
+func _prepare_fixture() -> void:
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(
+			ProjectSettings.globalize_path(_fixture_dir),
+		),
+		OK,
+	)
+	for file_name in CONTENT_FILE_NAMES:
+		var source := FileAccess.open(
+			"res://content/spring".path_join(file_name),
+			FileAccess.READ,
+		)
+		assert_not_null(source)
+		if source == null:
+			continue
+		var contents := source.get_as_text()
+		source.close()
+		var destination := FileAccess.open(
+			_fixture_dir.path_join(file_name),
+			FileAccess.WRITE,
+		)
+		assert_not_null(destination)
+		if destination == null:
+			continue
+		destination.store_string(contents)
+		destination.close()
+
+
+func _read_fixture_json(file_name: String) -> Dictionary:
+	var file := FileAccess.open(
+		_fixture_dir.path_join(file_name),
+		FileAccess.READ,
+	)
+	assert_not_null(file)
+	if file == null:
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	assert_eq(typeof(parsed), TYPE_DICTIONARY)
+	return parsed
+
+
+func _write_fixture_json(file_name: String, value: Dictionary) -> void:
+	var file := FileAccess.open(
+		_fixture_dir.path_join(file_name),
+		FileAccess.WRITE,
+	)
+	assert_not_null(file)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(value, "  "))
+	file.close()
+
+
+func _write_fixture_text(file_name: String, text: String) -> void:
+	var file := FileAccess.open(
+		_fixture_dir.path_join(file_name),
+		FileAccess.WRITE,
+	)
+	assert_not_null(file)
+	if file == null:
+		return
+	file.store_string(text)
+	file.close()

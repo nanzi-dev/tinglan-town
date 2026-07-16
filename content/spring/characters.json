@@ -1,0 +1,164 @@
+{
+  "characters": [
+    {
+      "character_id": "shen-yan",
+      "name": "沈砚",
+      "age": 29,
+      "role": "书屋主人",
+      "traits": ["克制", "敏锐", "重承诺"],
+      "romanceable": true,
+      "home_location_id": "shen_home",
+      "work_location_id": "bookshop",
+      "schedule_id": "shen-yan",
+      "capabilities": ["book_appraisal", "research", "careful_conversation"],
+      "personal_request": {
+        "type": "social_promise",
+        "topic": "按时归还珍贵旧书"
+      }
+    },
+    {
+      "character_id": "lin-xi",
+      "name": "林汐",
+      "age": 27,
+      "role": "茶馆掌柜",
+      "traits": ["温和", "好奇", "善调停"],
+      "romanceable": true,
+      "home_location_id": "tea_house",
+      "work_location_id": "tea_house",
+      "schedule_id": "lin-xi",
+      "capabilities": ["tea_blending", "mediation", "community_networking"],
+      "personal_request": {
+        "type": "gather",
+        "topic": "寻找适合春茶的新鲜嫩叶"
+      }
+    },
+    {
+      "character_id": "zhou-he",
+      "name": "周禾",
+      "age": 34,
+      "role": "诊所医师",
+      "traits": ["稳健", "直接", "有边界"],
+      "romanceable": false,
+      "home_location_id": "clinic",
+      "work_location_id": "clinic",
+      "schedule_id": "zhou-he",
+      "capabilities": ["medicine", "herb_identification", "first_aid"],
+      "personal_request": {
+        "type": "gather",
+        "topic": "补充诊所常用春季药草"
+      }
+    },
+    {
+      "character_id": "lu-qiao",
+      "name": "陆桥",
+      "age": 42,
+      "role": "木作匠人",
+      "traits": ["务实", "固执", "重手艺"],
+      "romanceable": false,
+      "home_location_id": "workshop",
+      "work_location_id": "workshop",
+      "schedule_id": "lu-qiao",
+      "capabilities": ["carpentry", "structural_inspection", "tool_repair"],
+      "personal_request": {
+        "type": "repair",
+        "topic": "确认听雨桥的结构隐患"
+      }
+    },
+    {
+      "character_id": "su-wan",
+      "name": "苏晚",
+      "age": 23,
+      "role": "杂货铺店员",
+      "traits": ["活泼", "细心", "怕冲突"],
+      "romanceable": false,
+      "home_location_id": "general_store",
+      "work_location_id": "general_store",
+      "schedule_id": "su-wan",
+      "capabilities": ["stockkeeping", "delivery_planning", "local_gossip"],
+      "personal_request": {
+        "type": "investigation",
+        "topic": "找回遗漏的进货账页"
+      }
+    },
+    {
+      "character_id": "gu-yun",
+      "name": "顾云",
+      "age": 31,
+      "role": "渔人",
+      "traits": ["寡言", "可靠", "念旧"],
+      "romanceable": false,
+      "home_location_id": "gu_home",
+      "work_location_id": "town_outdoors",
+      "schedule_id": "gu-yun",
+      "capabilities": ["fishing", "river_navigation", "weather_reading"],
+      "personal_request": {
+        "type": "visit",
+        "topic": "查看南湾旧系船桩"
+      }
+    },
+    {
+      "character_id": "tang-yu",
+      "name": "唐雨",
+      "age": 19,
+      "role": "社区中心助理",
+      "traits": ["热情", "理想化", "易分心"],
+      "romanceable": false,
+      "home_location_id": "community_center",
+      "work_location_id": "community_center",
+      "schedule_id": "tang-yu",
+      "capabilities": ["event_planning", "notice_writing", "volunteer_coordination"],
+      "personal_request": {
+        "type": "festival_preparation",
+        "topic": "筹备上巳水灯会"
+      }
+    },
+    {
+      "character_id": "qiao-zhen",
+      "name": "乔贞",
+      "age": 56,
+      "role": "居民代表",
+      "traits": ["审慎", "公平", "记性好"],
+      "romanceable": false,
+      "home_location_id": "qiao_home",
+      "work_location_id": "community_center",
+      "schedule_id": "qiao-zhen",
+      "capabilities": ["community_voting", "recordkeeping", "conflict_review"],
+      "personal_request": {
+        "type": "investigation",
+        "topic": "收集听雨桥修缮证据"
+      }
+    },
+    {
+      "character_id": "he-miao",
+      "name": "何苗",
+      "age": 38,
+      "role": "菜圃经营者",
+      "traits": ["爽朗", "勤勉", "护短"],
+      "romanceable": false,
+      "home_location_id": "qiao_home",
+      "work_location_id": "town_outdoors",
+      "schedule_id": "he-miao",
+      "capabilities": ["gardening", "foraging", "seed_selection"],
+      "personal_request": {
+        "type": "gather",
+        "topic": "收集菜圃春播所需材料"
+      }
+    },
+    {
+      "character_id": "xu-deng",
+      "name": "徐灯",
+      "age": 46,
+      "role": "船夫",
+      "traits": ["幽默", "观察入微", "避争执"],
+      "romanceable": false,
+      "home_location_id": "gu_home",
+      "work_location_id": "town_outdoors",
+      "schedule_id": "xu-deng",
+      "capabilities": ["ferrying", "river_navigation", "town_observation"],
+      "personal_request": {
+        "type": "repair",
+        "topic": "更换码头磨损的系船绳"
+      }
+    }
+  ]
+}

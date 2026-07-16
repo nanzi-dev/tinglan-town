@@ -1,0 +1,134 @@
+{
+  "schedules": [
+    {
+      "schedule_id": "shen-yan",
+      "character_id": "shen-yan",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "shen_home", "activity": "morning_routine"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "bookshop", "activity": "open_bookshop"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "midday_walk"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "bookshop", "activity": "books_and_research"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "shen_home", "activity": "private_reading"}
+      ]
+    },
+    {
+      "schedule_id": "lin-xi",
+      "character_id": "lin-xi",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "tea_house", "activity": "prepare_tea_house"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "tea_house", "activity": "serve_morning_tea"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "market_errands"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "tea_house", "activity": "serve_afternoon_tea"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "tea_house", "activity": "close_and_rest"}
+      ]
+    },
+    {
+      "schedule_id": "zhou-he",
+      "character_id": "zhou-he",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "clinic", "activity": "prepare_medicines"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "clinic", "activity": "morning_consultations"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "herb_check"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "clinic", "activity": "afternoon_consultations"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "clinic", "activity": "records_and_rest"}
+      ]
+    },
+    {
+      "schedule_id": "lu-qiao",
+      "character_id": "lu-qiao",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "workshop", "activity": "sharpen_tools"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "workshop", "activity": "carpentry"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "inspect_bridge"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "workshop", "activity": "repairs"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "workshop", "activity": "clean_and_rest"}
+      ]
+    },
+    {
+      "schedule_id": "su-wan",
+      "character_id": "su-wan",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "general_store", "activity": "stock_shelves"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "general_store", "activity": "serve_customers"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "delivery_round"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "general_store", "activity": "inventory"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "general_store", "activity": "close_and_rest"}
+      ]
+    },
+    {
+      "schedule_id": "gu-yun",
+      "character_id": "gu-yun",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 300, "end_minute": 420, "location_id": "gu_home", "activity": "prepare_nets"},
+        {"start_minute": 420, "end_minute": 720, "location_id": "town_outdoors", "activity": "morning_fishing"},
+        {"start_minute": 720, "end_minute": 840, "location_id": "gu_home", "activity": "meal_and_net_mending"},
+        {"start_minute": 840, "end_minute": 1080, "location_id": "town_outdoors", "activity": "dock_work"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "gu_home", "activity": "rest"}
+      ]
+    },
+    {
+      "schedule_id": "tang-yu",
+      "character_id": "tang-yu",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "community_center", "activity": "sort_notices"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "community_center", "activity": "community_desk"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "post_notices"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "community_center", "activity": "festival_planning"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "community_center", "activity": "close_and_rest"}
+      ]
+    },
+    {
+      "schedule_id": "qiao-zhen",
+      "character_id": "qiao-zhen",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 360, "end_minute": 480, "location_id": "qiao_home", "activity": "review_records"},
+        {"start_minute": 480, "end_minute": 720, "location_id": "community_center", "activity": "resident_meetings"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "town_outdoors", "activity": "town_round"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "community_center", "activity": "community_records"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "qiao_home", "activity": "rest"}
+      ]
+    },
+    {
+      "schedule_id": "he-miao",
+      "character_id": "he-miao",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 300, "end_minute": 420, "location_id": "qiao_home", "activity": "prepare_for_work"},
+        {"start_minute": 420, "end_minute": 720, "location_id": "town_outdoors", "activity": "garden_work"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "qiao_home", "activity": "meal"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "town_outdoors", "activity": "market_and_foraging"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "qiao_home", "activity": "rest"}
+      ]
+    },
+    {
+      "schedule_id": "xu-deng",
+      "character_id": "xu-deng",
+      "season": "spring",
+      "day_type": "normal",
+      "entries": [
+        {"start_minute": 300, "end_minute": 420, "location_id": "gu_home", "activity": "prepare_ferry"},
+        {"start_minute": 420, "end_minute": 720, "location_id": "town_outdoors", "activity": "morning_ferry"},
+        {"start_minute": 720, "end_minute": 780, "location_id": "gu_home", "activity": "meal"},
+        {"start_minute": 780, "end_minute": 1080, "location_id": "town_outdoors", "activity": "afternoon_ferry"},
+        {"start_minute": 1080, "end_minute": 1320, "location_id": "gu_home", "activity": "rest"}
+      ]
+    }
+  ]
+}

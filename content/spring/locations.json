@@ -1,0 +1,193 @@
+{
+  "locations": [
+    {
+      "location_id": "player_home",
+      "name": "玩家住所",
+      "is_interior": true,
+      "purpose": "player_residence",
+      "dimensions": {"width": 8, "depth": 7, "height": 3},
+      "floor_color": "#A98C67",
+      "wall_color": "#E8E2D2",
+      "furniture_layout": [
+        {"furniture_id": "bed", "x": 1, "z": 1},
+        {"furniture_id": "storage_chest", "x": 6, "z": 1}
+      ],
+      "interaction_points": [
+        {"interaction_id": "sleep", "x": 1, "z": 1},
+        {"interaction_id": "storage", "x": 6, "z": 1}
+      ]
+    },
+    {
+      "location_id": "tea_house",
+      "name": "临水茶馆",
+      "is_interior": true,
+      "purpose": "tea_service_and_social",
+      "dimensions": {"width": 11, "depth": 8, "height": 4},
+      "floor_color": "#8C7559",
+      "wall_color": "#E5E0CF",
+      "furniture_layout": [
+        {"furniture_id": "tea_counter", "x": 2, "z": 2},
+        {"furniture_id": "tea_table", "x": 7, "z": 4}
+      ],
+      "interaction_points": [
+        {"interaction_id": "order_tea", "x": 2, "z": 3},
+        {"interaction_id": "join_table", "x": 7, "z": 4}
+      ]
+    },
+    {
+      "location_id": "general_store",
+      "name": "杂货铺",
+      "is_interior": true,
+      "purpose": "retail_and_delivery",
+      "dimensions": {"width": 9, "depth": 8, "height": 3},
+      "floor_color": "#927B5F",
+      "wall_color": "#E6E0D0",
+      "furniture_layout": [
+        {"furniture_id": "shop_counter", "x": 2, "z": 2},
+        {"furniture_id": "supply_shelf", "x": 7, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "shop", "x": 2, "z": 3},
+        {"interaction_id": "delivery_crate", "x": 7, "z": 3}
+      ]
+    },
+    {
+      "location_id": "clinic",
+      "name": "听澜诊所",
+      "is_interior": true,
+      "purpose": "medical_care",
+      "dimensions": {"width": 9, "depth": 7, "height": 3},
+      "floor_color": "#A59A80",
+      "wall_color": "#E9E7DC",
+      "furniture_layout": [
+        {"furniture_id": "exam_bed", "x": 6, "z": 2},
+        {"furniture_id": "medicine_cabinet", "x": 1, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "consult", "x": 5, "z": 3},
+        {"interaction_id": "medicine_storage", "x": 1, "z": 3}
+      ]
+    },
+    {
+      "location_id": "workshop",
+      "name": "陆桥木作坊",
+      "is_interior": true,
+      "purpose": "carpentry_and_repairs",
+      "dimensions": {"width": 12, "depth": 9, "height": 4},
+      "floor_color": "#80674E",
+      "wall_color": "#D9D0BC",
+      "furniture_layout": [
+        {"furniture_id": "workbench", "x": 5, "z": 3},
+        {"furniture_id": "timber_rack", "x": 10, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "repair_station", "x": 5, "z": 4},
+        {"interaction_id": "material_dropoff", "x": 10, "z": 3}
+      ]
+    },
+    {
+      "location_id": "bookshop",
+      "name": "砚边书屋",
+      "is_interior": true,
+      "purpose": "books_and_research",
+      "dimensions": {"width": 10, "depth": 8, "height": 4},
+      "floor_color": "#7D6B59",
+      "wall_color": "#E3DED1",
+      "furniture_layout": [
+        {"furniture_id": "book_counter", "x": 2, "z": 2},
+        {"furniture_id": "bookcase", "x": 8, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "browse_books", "x": 7, "z": 3},
+        {"interaction_id": "return_book", "x": 2, "z": 3}
+      ]
+    },
+    {
+      "location_id": "community_center",
+      "name": "社区中心",
+      "is_interior": true,
+      "purpose": "notices_voting_and_events",
+      "dimensions": {"width": 14, "depth": 10, "height": 4},
+      "floor_color": "#9A876D",
+      "wall_color": "#E8E2D4",
+      "furniture_layout": [
+        {"furniture_id": "notice_board", "x": 2, "z": 2},
+        {"furniture_id": "meeting_table", "x": 8, "z": 5}
+      ],
+      "interaction_points": [
+        {"interaction_id": "task_board", "x": 2, "z": 3},
+        {"interaction_id": "community_vote", "x": 8, "z": 5}
+      ]
+    },
+    {
+      "location_id": "shen_home",
+      "name": "沈砚住所",
+      "is_interior": true,
+      "purpose": "resident_home",
+      "dimensions": {"width": 7, "depth": 6, "height": 3},
+      "floor_color": "#88745E",
+      "wall_color": "#E1DDD2",
+      "furniture_layout": [
+        {"furniture_id": "bed", "x": 1, "z": 1},
+        {"furniture_id": "writing_desk", "x": 5, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "front_door", "x": 3, "z": 5},
+        {"interaction_id": "private_conversation", "x": 5, "z": 3}
+      ]
+    },
+    {
+      "location_id": "gu_home",
+      "name": "顾云住所",
+      "is_interior": true,
+      "purpose": "resident_home",
+      "dimensions": {"width": 8, "depth": 6, "height": 3},
+      "floor_color": "#796B5B",
+      "wall_color": "#DAD8CF",
+      "furniture_layout": [
+        {"furniture_id": "bed", "x": 1, "z": 1},
+        {"furniture_id": "fishing_rack", "x": 6, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "front_door", "x": 4, "z": 5},
+        {"interaction_id": "fishing_stories", "x": 6, "z": 3}
+      ]
+    },
+    {
+      "location_id": "qiao_home",
+      "name": "乔贞住所",
+      "is_interior": true,
+      "purpose": "resident_home",
+      "dimensions": {"width": 9, "depth": 7, "height": 3},
+      "floor_color": "#93816A",
+      "wall_color": "#E4DFD3",
+      "furniture_layout": [
+        {"furniture_id": "bed", "x": 1, "z": 1},
+        {"furniture_id": "record_cabinet", "x": 7, "z": 2}
+      ],
+      "interaction_points": [
+        {"interaction_id": "front_door", "x": 4, "z": 6},
+        {"interaction_id": "review_records", "x": 7, "z": 3}
+      ]
+    },
+    {
+      "location_id": "town_outdoors",
+      "name": "听澜镇室外镇区",
+      "is_interior": false,
+      "purpose": "continuous_town_exploration",
+      "continuous": true,
+      "dimensions": {"width": 180, "depth": 140, "height": 20},
+      "floor_color": "#73866B",
+      "wall_color": "#D9DDCF",
+      "furniture_layout": [
+        {"furniture_id": "notice_board", "x": 82, "z": 64},
+        {"furniture_id": "dock_posts", "x": 142, "z": 105}
+      ],
+      "interaction_points": [
+        {"interaction_id": "tingyu_bridge", "x": 88, "z": 70},
+        {"interaction_id": "south_bay_festival", "x": 105, "z": 122}
+      ],
+      "districts": ["west_residential", "central_market", "east_craft", "south_bay"]
+    }
+  ]
+}

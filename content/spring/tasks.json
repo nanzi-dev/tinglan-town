@@ -1,0 +1,224 @@
+{
+  "task_templates": [
+    {
+      "template_id": "gather-spring-herbs",
+      "category": "gather",
+      "issuer_id": "zhou-he",
+      "objective": {"type": "collect_item", "item_id": "spring_herb", "count": 6},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 2, "minute": 1080},
+      "reward": {"coins": 70, "trust": 2},
+      "completion_rules": [{"type": "inventory_count", "item_id": "spring_herb", "count": 6}],
+      "description": "为诊所采集六份常用春季药草。"
+    },
+    {
+      "template_id": "gather-tea-shoots",
+      "category": "gather",
+      "issuer_id": "lin-xi",
+      "objective": {"type": "collect_item", "item_id": "tea_shoot", "count": 8},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 2, "minute": 1020},
+      "reward": {"coins": 65, "trust": 2},
+      "completion_rules": [{"type": "inventory_count", "item_id": "tea_shoot", "count": 8}],
+      "description": "采集八份适合试制春茶的嫩芽。"
+    },
+    {
+      "template_id": "gather-willow-branches",
+      "category": "gather",
+      "issuer_id": "tang-yu",
+      "objective": {"type": "collect_item", "item_id": "willow_branch", "count": 10},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 3, "minute": 1080},
+      "reward": {"coins": 55, "trust": 1},
+      "completion_rules": [{"type": "inventory_count", "item_id": "willow_branch", "count": 10}],
+      "description": "为社区中心收集十枝节庆装饰用柳条。"
+    },
+    {
+      "template_id": "gather-bridge-timber",
+      "category": "gather",
+      "issuer_id": "lu-qiao",
+      "objective": {"type": "collect_item", "item_id": "repair_timber", "count": 12},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 4, "minute": 1080},
+      "reward": {"coins": 100, "trust": 2},
+      "completion_rules": [{"type": "inventory_count", "item_id": "repair_timber", "count": 12}],
+      "description": "收集十二份可用于桥面修缮的木料。"
+    },
+    {
+      "template_id": "gather-lime",
+      "category": "gather",
+      "issuer_id": "he-miao",
+      "objective": {"type": "collect_item", "item_id": "lime", "count": 5},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 3, "minute": 960},
+      "reward": {"coins": 80, "trust": 1},
+      "completion_rules": [{"type": "inventory_count", "item_id": "lime", "count": 5}],
+      "description": "收集五份可供桥基加固使用的石灰。"
+    },
+    {
+      "template_id": "delivery-clinic-medicine",
+      "category": "delivery",
+      "issuer_id": "zhou-he",
+      "objective": {"type": "deliver_item", "item_id": "medicine_packet", "count": 1, "recipient_id": "qiao-zhen"},
+      "location_id": "qiao_home",
+      "deadline": {"days": 1, "minute": 960},
+      "reward": {"coins": 45, "trust": 1},
+      "completion_rules": [{"type": "delivered_to", "character_id": "qiao-zhen", "item_id": "medicine_packet"}],
+      "description": "把诊所配好的药包送到乔贞家。"
+    },
+    {
+      "template_id": "delivery-tea-to-bookshop",
+      "category": "delivery",
+      "issuer_id": "lin-xi",
+      "objective": {"type": "deliver_item", "item_id": "tea_flask", "count": 1, "recipient_id": "shen-yan"},
+      "location_id": "bookshop",
+      "deadline": {"days": 1, "minute": 780},
+      "reward": {"coins": 35, "trust": 1},
+      "completion_rules": [{"type": "delivered_to", "character_id": "shen-yan", "item_id": "tea_flask"}],
+      "description": "将一壶新茶送到砚边书屋。"
+    },
+    {
+      "template_id": "delivery-store-supplies",
+      "category": "delivery",
+      "issuer_id": "su-wan",
+      "objective": {"type": "deliver_item", "item_id": "tea_house_supplies", "count": 1, "recipient_id": "lin-xi"},
+      "location_id": "tea_house",
+      "deadline": {"days": 1, "minute": 900},
+      "reward": {"coins": 50, "trust": 1},
+      "completion_rules": [{"type": "delivered_to", "character_id": "lin-xi", "item_id": "tea_house_supplies"}],
+      "description": "把杂货铺备好的茶馆用品送给林汐。"
+    },
+    {
+      "template_id": "delivery-community-letters",
+      "category": "delivery",
+      "issuer_id": "tang-yu",
+      "objective": {"type": "deliver_item", "item_id": "community_letter", "count": 2, "recipient_id": "gu-yun"},
+      "location_id": "gu_home",
+      "deadline": {"days": 2, "minute": 1080},
+      "reward": {"coins": 55, "trust": 1},
+      "completion_rules": [{"type": "delivered_to", "character_id": "gu-yun", "item_id": "community_letter"}],
+      "description": "将社区通知送到顾云与徐灯合住的河边住所。"
+    },
+    {
+      "template_id": "visit-clinic-checkup",
+      "category": "visit",
+      "issuer_id": "zhou-he",
+      "objective": {"type": "visit_location", "duration_minutes": 30},
+      "location_id": "clinic",
+      "deadline": {"days": 2, "minute": 1020},
+      "reward": {"coins": 20, "trust": 1},
+      "completion_rules": [{"type": "visited_location", "location_id": "clinic", "duration_minutes": 30}],
+      "description": "在诊所开放时前往完成一次基础检查。"
+    },
+    {
+      "template_id": "visit-qiao-records",
+      "category": "visit",
+      "issuer_id": "qiao-zhen",
+      "objective": {"type": "visit_location", "duration_minutes": 20},
+      "location_id": "qiao_home",
+      "deadline": {"days": 2, "minute": 1140},
+      "reward": {"coins": 30, "trust": 1},
+      "completion_rules": [{"type": "visited_location", "location_id": "qiao_home", "duration_minutes": 20}],
+      "description": "去乔贞家核对一份旧桥维修记录。"
+    },
+    {
+      "template_id": "visit-south-bay",
+      "category": "visit",
+      "issuer_id": "xu-deng",
+      "objective": {"type": "visit_marker", "marker_id": "south_bay_festival"},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 2, "minute": 1080},
+      "reward": {"coins": 35, "trust": 1},
+      "completion_rules": [{"type": "visited_marker", "marker_id": "south_bay_festival"}],
+      "description": "前往南湾查看水灯会的靠岸位置。"
+    },
+    {
+      "template_id": "repair-workshop-stool",
+      "category": "repair",
+      "issuer_id": "lu-qiao",
+      "objective": {"type": "repair_object", "object_id": "workshop_stool"},
+      "location_id": "workshop",
+      "deadline": {"days": 2, "minute": 1020},
+      "reward": {"coins": 60, "trust": 1},
+      "completion_rules": [{"type": "object_repaired", "object_id": "workshop_stool"}],
+      "description": "在工坊修好一张松动的木凳。"
+    },
+    {
+      "template_id": "repair-bookshop-shelf",
+      "category": "repair",
+      "issuer_id": "shen-yan",
+      "objective": {"type": "repair_object", "object_id": "bookshop_bookcase"},
+      "location_id": "bookshop",
+      "deadline": {"days": 3, "minute": 1020},
+      "reward": {"coins": 75, "trust": 2},
+      "completion_rules": [{"type": "object_repaired", "object_id": "bookshop_bookcase"}],
+      "description": "固定书屋一排倾斜的旧书架。"
+    },
+    {
+      "template_id": "repair-dock-rope",
+      "category": "repair",
+      "issuer_id": "xu-deng",
+      "objective": {"type": "repair_object", "object_id": "dock_mooring_rope"},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 2, "minute": 960},
+      "reward": {"coins": 70, "trust": 1},
+      "completion_rules": [{"type": "object_repaired", "object_id": "dock_mooring_rope"}],
+      "description": "更换码头磨损的系船绳。"
+    },
+    {
+      "template_id": "investigate-bridge-cracks",
+      "category": "investigation",
+      "issuer_id": "lu-qiao",
+      "objective": {"type": "collect_evidence", "evidence_id": "bridge_crack_report", "count": 3},
+      "location_id": "town_outdoors",
+      "deadline": {"days": 3, "minute": 1080},
+      "reward": {"coins": 90, "trust": 2},
+      "completion_rules": [{"type": "evidence_count", "evidence_id": "bridge_crack_report", "count": 3}],
+      "description": "记录听雨桥三处明显裂纹并带回证据。"
+    },
+    {
+      "template_id": "investigate-missing-ledger",
+      "category": "investigation",
+      "issuer_id": "su-wan",
+      "objective": {"type": "find_object", "object_id": "missing_ledger_page"},
+      "location_id": "general_store",
+      "deadline": {"days": 2, "minute": 1080},
+      "reward": {"coins": 65, "trust": 2},
+      "completion_rules": [{"type": "object_found", "object_id": "missing_ledger_page"}],
+      "description": "在杂货铺查找遗漏的进货账页。"
+    },
+    {
+      "template_id": "promise-share-tea",
+      "category": "social_promise",
+      "issuer_id": "lin-xi",
+      "objective": {"type": "keep_appointment", "character_id": "lin-xi", "minute": 960},
+      "location_id": "tea_house",
+      "deadline": {"days": 2, "minute": 1020},
+      "reward": {"coins": 20, "trust": 3},
+      "completion_rules": [{"type": "appointment_kept", "character_id": "lin-xi", "location_id": "tea_house"}],
+      "description": "在约定的午后到茶馆与林汐试一壶新茶。"
+    },
+    {
+      "template_id": "promise-return-book",
+      "category": "social_promise",
+      "issuer_id": "shen-yan",
+      "objective": {"type": "return_item_on_time", "item_id": "annotated_old_book"},
+      "location_id": "bookshop",
+      "deadline": {"days": 3, "minute": 1020},
+      "reward": {"coins": 20, "trust": 3},
+      "completion_rules": [{"type": "item_returned", "item_id": "annotated_old_book", "location_id": "bookshop"}],
+      "description": "在约定期限前将有批注的旧书归还沈砚。"
+    },
+    {
+      "template_id": "festival-prepare-water-lanterns",
+      "category": "festival_preparation",
+      "issuer_id": "tang-yu",
+      "objective": {"type": "prepare_festival_items", "item_id": "water_lantern", "count": 12},
+      "location_id": "community_center",
+      "deadline": {"days": 4, "minute": 1080},
+      "reward": {"coins": 110, "trust": 3},
+      "completion_rules": [{"type": "festival_item_count", "item_id": "water_lantern", "count": 12}],
+      "description": "协助社区中心制作十二盏上巳水灯。"
+    }
+  ]
+}

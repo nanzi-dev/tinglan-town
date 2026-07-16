@@ -1,0 +1,43 @@
+{
+  "festival": {
+    "festival_id": "shangsi-water-lantern-festival",
+    "name": "上巳水灯会",
+    "season": "spring",
+    "day": 12,
+    "start_minute": 1080,
+    "location_id": "town_outdoors",
+    "interaction_point_id": "south_bay_festival",
+    "preparation_branches": [
+      {
+        "branch_id": "low",
+        "minimum_preparation": 0,
+        "maximum_preparation": 39,
+        "display": {
+          "decoration_level": "simple",
+          "attendance": "small",
+          "dialogue_tone": "improvised_but_warm"
+        }
+      },
+      {
+        "branch_id": "medium",
+        "minimum_preparation": 40,
+        "maximum_preparation": 79,
+        "display": {
+          "decoration_level": "complete",
+          "attendance": "community",
+          "dialogue_tone": "relaxed_and_festive"
+        }
+      },
+      {
+        "branch_id": "high",
+        "minimum_preparation": 80,
+        "maximum_preparation": 100,
+        "display": {
+          "decoration_level": "abundant",
+          "attendance": "full_town",
+          "dialogue_tone": "grateful_and_celebratory"
+        }
+      }
+    ]
+  }
+}

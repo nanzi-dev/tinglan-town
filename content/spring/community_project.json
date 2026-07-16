@@ -1,0 +1,43 @@
+{
+  "community_project": {
+    "project_id": "repair-tingyu-bridge",
+    "name": "修复听雨桥",
+    "proposer_id": "lu-qiao",
+    "location_id": "town_outdoors",
+    "resource_thresholds": {
+      "materials": {
+        "repair_timber": 30,
+        "lime": 12
+      },
+      "funds": 500,
+      "support_votes": 6
+    },
+    "stages": [
+      {
+        "stage_id": "proposed",
+        "order": 1,
+        "summary": "陆桥提交桥体结构隐患说明。"
+      },
+      {
+        "stage_id": "collecting",
+        "order": 2,
+        "summary": "居民收集木料、石灰与修缮资金。"
+      },
+      {
+        "stage_id": "voting",
+        "order": 3,
+        "summary": "社区中心依据证据和资源情况举行投票。"
+      },
+      {
+        "stage_id": "construction",
+        "order": 4,
+        "summary": "听雨桥封闭两天并进行施工。"
+      },
+      {
+        "stage_id": "completed",
+        "order": 5,
+        "summary": "桥梁落成并开放桥头纪念对话。"
+      }
+    ]
+  }
+}
