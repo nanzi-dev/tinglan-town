@@ -1,3 +1,19 @@
-[gd_scene format=3]
+[gd_scene load_steps=4 format=3]
 
-[node name="Main" type="Node"]
+[ext_resource type="PackedScene" path="res://scenes/town/town.tscn" id="1_town"]
+[ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="2_player"]
+[ext_resource type="Script" path="res://scripts/presentation/isometric_camera.gd" id="3_camera"]
+
+[node name="Main" type="Node3D"]
+
+[node name="Town" parent="." instance=ExtResource("1_town")]
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector3(-14, 0.05, 0)
+
+[node name="IsometricCamera" type="Camera3D" parent="."]
+projection = 1
+current = true
+size = 30.0
+script = ExtResource("3_camera")
+target_path = NodePath("../Player")

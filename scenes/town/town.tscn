@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/presentation/town_builder.gd" id="1_town"]
+
+[sub_resource type="Environment" id="Environment_town"]
+background_mode = 1
+background_color = Color(0.72, 0.82, 0.8, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.74, 0.78, 0.7, 1)
+ambient_light_energy = 0.8
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_town"]
+
+[node name="Town" type="Node3D"]
+script = ExtResource("1_town")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_town")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-52, -35, 0)
+light_color = Color(1, 0.93, 0.8, 1)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+navigation_mesh = SubResource("NavigationMesh_town")
+
+[node name="Districts" type="Node3D" parent="."]
+
+[node name="River" type="Node3D" parent="."]
+
+[node name="Bridges" type="Node3D" parent="."]
+
+[node name="Entrances" type="Node3D" parent="."]
+
+[node name="Scenery" type="Node3D" parent="."]
