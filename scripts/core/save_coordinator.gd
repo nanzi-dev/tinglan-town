@@ -68,6 +68,29 @@ func save_checkpoint(
 	var checkpoint_path := _save_directory.path_join(CHECKPOINT_FILE_NAME)
 	var temporary_path := _save_directory.path_join(CHECKPOINT_TEMP_FILE_NAME)
 	var backup_path := _save_directory.path_join(CHECKPOINT_BACKUP_FILE_NAME)
+	var absolute_checkpoint_path := ProjectSettings.globalize_path(checkpoint_path)
+	var absolute_temporary_path := ProjectSettings.globalize_path(temporary_path)
+	var absolute_backup_path := ProjectSettings.globalize_path(backup_path)
+	var had_checkpoint := FileAccess.file_exists(checkpoint_path)
+	var had_backup := FileAccess.file_exists(backup_path)
+	if DirAccess.dir_exists_absolute(absolute_backup_path):
+		return ERR_ALREADY_EXISTS
+	if had_checkpoint and had_backup:
+		if _read_checkpoint(checkpoint_path)["ok"]:
+			var stale_backup_error := DirAccess.remove_absolute(
+				absolute_backup_path,
+			)
+			if stale_backup_error != OK:
+				return stale_backup_error
+		else:
+			if not _read_checkpoint(backup_path)["ok"]:
+				return ERR_INVALID_DATA
+			var corrupt_checkpoint_error := DirAccess.remove_absolute(
+				absolute_checkpoint_path,
+			)
+			if corrupt_checkpoint_error != OK:
+				return corrupt_checkpoint_error
+
 	var file := FileAccess.open(
 		temporary_path,
 		FileAccess.WRITE,
@@ -83,14 +106,8 @@ func save_checkpoint(
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary_path))
 		return write_error
 
-	var absolute_checkpoint_path := ProjectSettings.globalize_path(checkpoint_path)
-	var absolute_temporary_path := ProjectSettings.globalize_path(temporary_path)
-	var absolute_backup_path := ProjectSettings.globalize_path(backup_path)
-	var had_checkpoint := FileAccess.file_exists(checkpoint_path)
-	var had_backup := FileAccess.file_exists(backup_path)
-	if DirAccess.dir_exists_absolute(absolute_backup_path):
-		DirAccess.remove_absolute(absolute_temporary_path)
-		return ERR_ALREADY_EXISTS
+	had_checkpoint = FileAccess.file_exists(checkpoint_path)
+	had_backup = FileAccess.file_exists(backup_path)
 	if had_backup:
 		if had_checkpoint or not _read_checkpoint(backup_path)["ok"]:
 			DirAccess.remove_absolute(absolute_temporary_path)

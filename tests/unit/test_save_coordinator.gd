@@ -411,6 +411,64 @@ func test_save_continues_after_recovering_from_the_only_valid_backup() -> void:
 	))
 
 
+func test_save_reconciles_valid_current_and_stale_valid_backup() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var checkpoint_path := _save_dir.path_join("checkpoint.json")
+	var backup_path := _save_dir.path_join("checkpoint.json.bak")
+	assert_eq(
+		coordinator.save_checkpoint({"project_stage": 2}, 8, ["event-8"]),
+		OK,
+	)
+	_write_text_file(backup_path, _read_text_file(checkpoint_path))
+	assert_true(coordinator.recover()["ok"])
+
+	var save_error: Error = coordinator.save_checkpoint(
+		{"project_stage": 3},
+		9,
+		["event-8", "event-9"],
+	)
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_eq(save_error, OK)
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"], {"project_stage": 3})
+	assert_eq(recovered["last_event_sequence"], 9)
+	assert_eq(recovered["processed_event_ids"], ["event-8", "event-9"])
+	assert_false(FileAccess.file_exists(backup_path))
+
+
+func test_save_reconciles_corrupt_current_without_losing_valid_backup() -> void:
+	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
+	var checkpoint_path := _save_dir.path_join("checkpoint.json")
+	var backup_path := _save_dir.path_join("checkpoint.json.bak")
+	assert_eq(
+		coordinator.save_checkpoint({"project_stage": 2}, 8, ["event-8"]),
+		OK,
+	)
+	_write_text_file(backup_path, _read_text_file(checkpoint_path))
+	_write_text_file(checkpoint_path, "{\"format\":\"invalid\"}")
+	var recovered_before_save: Dictionary = coordinator.recover()
+	assert_true(recovered_before_save["ok"])
+	assert_eq(
+		recovered_before_save["world_state"],
+		{"project_stage": 2},
+	)
+
+	var save_error: Error = coordinator.save_checkpoint(
+		{"project_stage": 3},
+		9,
+		["event-8", "event-9"],
+	)
+	var recovered: Dictionary = coordinator.recover()
+
+	assert_eq(save_error, OK)
+	assert_true(recovered["ok"])
+	assert_eq(recovered["world_state"], {"project_stage": 3})
+	assert_eq(recovered["last_event_sequence"], 9)
+	assert_eq(recovered["processed_event_ids"], ["event-8", "event-9"])
+	assert_false(FileAccess.file_exists(backup_path))
+
+
 func test_event_log_appends_one_json_object_per_line() -> void:
 	var coordinator = load(SAVE_COORDINATOR_PATH).new(_save_dir)
 	assert_eq(coordinator.append_event({
