@@ -485,6 +485,51 @@ func test_validation_rejects_unknown_location_task_target() -> void:
 	])
 
 
+func test_validation_rejects_unknown_visit_marker_for_task_location() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][11]["objective"]["marker_id"] = "missing-point"
+	tasks["task_templates"][11]["completion_rules"][0]["marker_id"] = (
+		"missing-point"
+	)
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[11].objective.marker_id: unknown interaction point "
+			+ "'missing-point' for location 'town_outdoors'"
+		),
+		(
+			"task_templates[11].completion_rules[0].marker_id: "
+			+ "unknown interaction point 'missing-point' "
+			+ "for location 'town_outdoors'"
+		),
+	])
+
+
+func test_validation_rejects_category_objective_type_mismatches() -> void:
+	_prepare_fixture()
+	var tasks := _read_fixture_json("tasks.json")
+	tasks["task_templates"][0]["category"] = "delivery"
+	tasks["task_templates"][5]["category"] = "gather"
+	_write_fixture_json("tasks.json", tasks)
+
+	var repository = _new_repository(_fixture_dir)
+	assert_false(repository.load_spring())
+	assert_eq(repository.validation_errors, [
+		(
+			"task_templates[0].objective.type: objective type 'collect_item' "
+			+ "is not allowed for category 'delivery'"
+		),
+		(
+			"task_templates[5].objective.type: objective type 'deliver_item' "
+			+ "is not allowed for category 'gather'"
+		),
+	])
+
+
 func test_validation_reports_schema_and_duplicate_errors_in_order() -> void:
 	_prepare_fixture()
 	var characters := _read_fixture_json("characters.json")

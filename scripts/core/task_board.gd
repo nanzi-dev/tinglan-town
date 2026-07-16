@@ -98,7 +98,7 @@ func task_status(task_id: Variant) -> String:
 func complete_task(
 	task_id: Variant,
 	event_id: Variant,
-	inventory: Variant,
+	context: Variant,
 ) -> Dictionary:
 	if typeof(task_id) != TYPE_STRING or not _tasks.has(task_id):
 		return _completion_result({})
@@ -107,7 +107,7 @@ func complete_task(
 	var zero_reward := _zero_reward(task["reward"])
 	if task["status"] != "accepted":
 		return _completion_result(zero_reward)
-	if not _completion_rules_are_satisfied(task["completion_rules"], inventory):
+	if not _completion_rules_are_satisfied(task["completion_rules"], context):
 		return _completion_result(zero_reward)
 	if not _event_log.record_once(event_id, EVENT_CONSUMER_ID):
 		return _completion_result(zero_reward)
@@ -166,26 +166,59 @@ func _is_valid_completion_rule(rule: Variant) -> bool:
 		if not rule.has(field):
 			return false
 		if field in ["count", "duration_minutes"]:
-			if not _is_nonnegative_integer(rule[field]):
+			if not _is_positive_integer(rule[field]):
 				return false
 		elif not _is_nonempty_string(rule[field]):
 			return false
 	return true
 
 
-func _completion_rules_are_satisfied(rules: Array, inventory: Variant) -> bool:
-	if typeof(inventory) != TYPE_DICTIONARY:
+func _completion_rules_are_satisfied(rules: Array, context: Variant) -> bool:
+	if typeof(context) != TYPE_DICTIONARY:
 		return false
+
+	if typeof(context.get("facts", null)) == TYPE_ARRAY:
+		for rule in rules:
+			var satisfied := false
+			for fact in context["facts"]:
+				if _fact_satisfies_rule(fact, rule):
+					satisfied = true
+					break
+			if not satisfied:
+				return false
+		return true
 
 	for rule in rules:
 		if rule["type"] not in ["has_item", "inventory_count"]:
 			return false
-		var item_count = inventory.get(rule["item_id"], 0)
+		var item_count = context.get(rule["item_id"], 0)
 		if (
 			typeof(item_count) != TYPE_INT
 			or item_count < 0
 			or item_count < rule["count"]
 		):
+			return false
+	return true
+
+
+func _fact_satisfies_rule(fact: Variant, rule: Dictionary) -> bool:
+	if typeof(fact) != TYPE_DICTIONARY:
+		return false
+	var rule_type: String = rule["type"]
+	if not STRUCTURED_RULE_FIELDS.has(rule_type):
+		return false
+	if fact.get("type", null) != rule_type:
+		return false
+	for field in STRUCTURED_RULE_FIELDS[rule_type]:
+		if not fact.has(field):
+			return false
+		if field in ["count", "duration_minutes"]:
+			if (
+				typeof(fact[field]) != TYPE_INT
+				or fact[field] < rule[field]
+			):
+				return false
+		elif fact[field] != rule[field]:
 			return false
 	return true
 
@@ -196,6 +229,10 @@ func _is_nonempty_string(value: Variant) -> bool:
 
 func _is_nonnegative_integer(value: Variant) -> bool:
 	return typeof(value) == TYPE_INT and value >= 0
+
+
+func _is_positive_integer(value: Variant) -> bool:
+	return typeof(value) == TYPE_INT and value > 0
 
 
 func _zero_reward(reward: Dictionary) -> Dictionary:

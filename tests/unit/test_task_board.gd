@@ -229,6 +229,255 @@ func test_zero_has_item_requirement_is_a_valid_nonnegative_count() -> void:
 	)
 
 
+func test_legacy_inventory_can_use_facts_as_an_item_id() -> void:
+	var board := TaskBoard.new()
+	assert_true(board.add_task({
+		"task_id": "facts-item",
+		"status": "accepted",
+		"reward": {"coins": 5},
+		"completion_rules": [{
+			"type": "has_item",
+			"item_id": "facts",
+			"count": 1,
+		}],
+	}))
+
+	assert_eq(
+		board.complete_task("facts-item", "facts-item-event", {"facts": 1}),
+		{"reward": {"coins": 5}},
+	)
+
+
+func test_structured_numeric_requirements_must_be_positive_integers() -> void:
+	var board := TaskBoard.new()
+
+	for case in [
+		{
+			"task_id": "zero-structured-count",
+			"rule": {
+				"type": "inventory_count",
+				"item_id": "mint",
+				"count": 0,
+			},
+		},
+		{
+			"task_id": "zero-structured-duration",
+			"rule": {
+				"type": "visited_location",
+				"location_id": "clinic",
+				"duration_minutes": 0,
+			},
+		},
+	]:
+		assert_false(board.add_task({
+			"task_id": case["task_id"],
+			"status": "accepted",
+			"reward": {},
+			"completion_rules": [case["rule"]],
+		}))
+		assert_eq(board.task_status(case["task_id"]), "")
+
+
+func test_structured_completion_rules_accept_matching_facts() -> void:
+	var cases := [
+		{
+			"rule": {
+				"type": "inventory_count",
+				"item_id": "spring_herb",
+				"count": 6,
+			},
+			"fact": {
+				"type": "inventory_count",
+				"item_id": "spring_herb",
+				"count": 7,
+			},
+		},
+		{
+			"rule": {
+				"type": "delivered_to",
+				"character_id": "qiao-zhen",
+				"item_id": "medicine_packet",
+				"count": 1,
+			},
+			"fact": {
+				"type": "delivered_to",
+				"character_id": "qiao-zhen",
+				"item_id": "medicine_packet",
+				"count": 2,
+			},
+		},
+		{
+			"rule": {
+				"type": "visited_location",
+				"location_id": "clinic",
+				"duration_minutes": 30,
+			},
+			"fact": {
+				"type": "visited_location",
+				"location_id": "clinic",
+				"duration_minutes": 45,
+			},
+		},
+		{
+			"rule": {
+				"type": "visited_marker",
+				"marker_id": "south_bay_festival",
+			},
+			"fact": {
+				"type": "visited_marker",
+				"marker_id": "south_bay_festival",
+			},
+		},
+		{
+			"rule": {
+				"type": "object_repaired",
+				"object_id": "workshop_stool",
+			},
+			"fact": {
+				"type": "object_repaired",
+				"object_id": "workshop_stool",
+			},
+		},
+		{
+			"rule": {
+				"type": "evidence_count",
+				"evidence_id": "bridge_crack_report",
+				"count": 3,
+			},
+			"fact": {
+				"type": "evidence_count",
+				"evidence_id": "bridge_crack_report",
+				"count": 4,
+			},
+		},
+		{
+			"rule": {
+				"type": "object_found",
+				"object_id": "missing_ledger_page",
+			},
+			"fact": {
+				"type": "object_found",
+				"object_id": "missing_ledger_page",
+			},
+		},
+		{
+			"rule": {
+				"type": "appointment_kept",
+				"character_id": "lin-xi",
+				"location_id": "tea_house",
+			},
+			"fact": {
+				"type": "appointment_kept",
+				"character_id": "lin-xi",
+				"location_id": "tea_house",
+			},
+		},
+		{
+			"rule": {
+				"type": "item_returned",
+				"item_id": "annotated_old_book",
+				"location_id": "bookshop",
+			},
+			"fact": {
+				"type": "item_returned",
+				"item_id": "annotated_old_book",
+				"location_id": "bookshop",
+			},
+		},
+		{
+			"rule": {
+				"type": "festival_item_count",
+				"item_id": "water_lantern",
+				"count": 12,
+			},
+			"fact": {
+				"type": "festival_item_count",
+				"item_id": "water_lantern",
+				"count": 14,
+			},
+		},
+	]
+
+	for index in cases.size():
+		var board := TaskBoard.new()
+		var task_id := "structured-%d" % index
+		assert_true(board.add_task({
+			"task_id": task_id,
+			"status": "accepted",
+			"reward": {"coins": 10},
+			"completion_rules": [cases[index]["rule"]],
+		}))
+		assert_eq(
+			board.complete_task(
+				task_id,
+				"structured-event-%d" % index,
+				{"facts": [cases[index]["fact"]]},
+			),
+			{"reward": {"coins": 10}},
+			"Structured rule %s should accept a matching fact."
+				% cases[index]["rule"]["type"],
+		)
+
+
+func test_structured_completion_requires_exact_strings_and_sufficient_integers() -> void:
+	var board := TaskBoard.new()
+	assert_true(board.add_task({
+		"task_id": "delivery-structured",
+		"status": "accepted",
+		"reward": {"coins": 25},
+		"completion_rules": [{
+			"type": "delivered_to",
+			"character_id": "qiao-zhen",
+			"item_id": "community_letter",
+			"count": 2,
+		}],
+	}))
+
+	for fact in [
+		{
+			"type": "delivered_to",
+			"character_id": "gu-yun",
+			"item_id": "community_letter",
+			"count": 2,
+		},
+		{
+			"type": "delivered_to",
+			"character_id": "qiao-zhen",
+			"item_id": "community_letter",
+			"count": 1,
+		},
+		{
+			"type": "delivered_to",
+			"character_id": "qiao-zhen",
+			"item_id": "community_letter",
+			"count": 2.0,
+		},
+	]:
+		assert_eq(
+			board.complete_task(
+				"delivery-structured",
+				"reusable-structured-event",
+				{"facts": [fact]},
+			),
+			{"reward": {"coins": 0}},
+		)
+		assert_eq(board.task_status("delivery-structured"), "accepted")
+
+	assert_eq(
+		board.complete_task(
+			"delivery-structured",
+			"reusable-structured-event",
+			{"facts": [{
+				"type": "delivered_to",
+				"character_id": "qiao-zhen",
+				"item_id": "community_letter",
+				"count": 2,
+			}]},
+		),
+		{"reward": {"coins": 25}},
+	)
+
+
 func test_zero_reward_preserves_each_reward_value_type() -> void:
 	var board := TaskBoard.new()
 	assert_true(board.add_task({

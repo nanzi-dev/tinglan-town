@@ -35,6 +35,15 @@ const REQUIRED_TASK_CATEGORY_COUNTS := {
 	"social_promise": 2,
 	"festival_preparation": 1,
 }
+const TASK_CATEGORY_OBJECTIVE_TYPES := {
+	"gather": ["collect_item"],
+	"delivery": ["deliver_item"],
+	"visit": ["visit_location", "visit_marker"],
+	"repair": ["repair_object"],
+	"investigation": ["collect_evidence", "find_object"],
+	"social_promise": ["keep_appointment", "return_item_on_time"],
+	"festival_preparation": ["prepare_festival_items"],
+}
 const OBJECTIVE_REQUIRED_FIELDS := {
 	"collect_item": ["item_id", "count"],
 	"deliver_item": ["item_id", "count", "recipient_id"],
@@ -722,6 +731,7 @@ func _validate_tasks(
 				location_ids,
 				errors,
 			)
+		_validate_task_category_objective(task, path, errors)
 		if task.has("deadline"):
 			_validate_deadline(task["deadline"], "%s.deadline" % path, errors)
 		if task.has("reward"):
@@ -740,6 +750,12 @@ func _validate_tasks(
 			location_ids,
 			errors,
 		)
+		_validate_task_marker_references(
+			task,
+			path,
+			location_ids,
+			errors,
+		)
 		_validate_task_semantics(task, path, errors)
 	for category in REQUIRED_TASK_CATEGORY_COUNTS:
 		if category_counts[category] != REQUIRED_TASK_CATEGORY_COUNTS[category]:
@@ -751,6 +767,32 @@ func _validate_tasks(
 					category_counts[category],
 				],
 			)
+
+
+func _validate_task_category_objective(
+	task: Dictionary,
+	path: String,
+	errors: Array,
+) -> void:
+	var category = task.get("category", null)
+	var objective = task.get("objective", null)
+	if (
+		typeof(category) != TYPE_STRING
+		or not TASK_CATEGORY_OBJECTIVE_TYPES.has(category)
+		or typeof(objective) != TYPE_DICTIONARY
+	):
+		return
+	var objective_type = objective.get("type", null)
+	if (
+		typeof(objective_type) != TYPE_STRING
+		or not OBJECTIVE_REQUIRED_FIELDS.has(objective_type)
+		or TASK_CATEGORY_OBJECTIVE_TYPES[category].has(objective_type)
+	):
+		return
+	errors.append(
+		"%s.objective.type: objective type '%s' is not allowed for category '%s'"
+		% [path, objective_type, category],
+	)
 
 
 func _validate_community_project(
@@ -1552,6 +1594,70 @@ func _validate_task_target_reference(
 	errors.append(
 		"%s.%s: unknown task target '%s' for location '%s'"
 		% [path, field, target_id, location_id],
+	)
+
+
+func _validate_task_marker_references(
+	task: Dictionary,
+	path: String,
+	location_ids: Dictionary,
+	errors: Array,
+) -> void:
+	var location_id = task.get("location_id", null)
+	if (
+		typeof(location_id) != TYPE_STRING
+		or location_id.is_empty()
+		or not location_ids.has(location_id)
+	):
+		return
+	var marker_ids: Dictionary = location_ids[location_id]["interaction_point_ids"]
+	var objective = task.get("objective", null)
+	if (
+		typeof(objective) == TYPE_DICTIONARY
+		and objective.get("type", "") == "visit_marker"
+	):
+		_validate_task_marker_reference(
+			objective,
+			"%s.objective" % path,
+			location_id,
+			marker_ids,
+			errors,
+		)
+	var rules = task.get("completion_rules", null)
+	if typeof(rules) != TYPE_ARRAY:
+		return
+	for index in rules.size():
+		if (
+			typeof(rules[index]) != TYPE_DICTIONARY
+			or rules[index].get("type", "") != "visited_marker"
+		):
+			continue
+		_validate_task_marker_reference(
+			rules[index],
+			"%s.completion_rules[%d]" % [path, index],
+			location_id,
+			marker_ids,
+			errors,
+		)
+
+
+func _validate_task_marker_reference(
+	record: Dictionary,
+	path: String,
+	location_id: String,
+	marker_ids: Dictionary,
+	errors: Array,
+) -> void:
+	var marker_id = record.get("marker_id", null)
+	if (
+		typeof(marker_id) != TYPE_STRING
+		or marker_id.is_empty()
+		or marker_ids.has(marker_id)
+	):
+		return
+	errors.append(
+		"%s.marker_id: unknown interaction point '%s' for location '%s'"
+		% [path, marker_id, location_id],
 	)
 
 
