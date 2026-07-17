@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/town/town.tscn" id="1_town"]
 [ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="2_player"]
@@ -6,8 +6,11 @@
 [ext_resource type="Script" path="res://scripts/services/location_manager.gd" id="4_location"]
 [ext_resource type="PackedScene" path="res://scenes/interiors/interior.tscn" id="5_interior"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="7_main"]
+[ext_resource type="Script" path="res://scripts/services/memoria_client.gd" id="8_memoria"]
 
 [node name="Main" type="Node3D"]
+script = ExtResource("7_main")
 
 [node name="Town" parent="." instance=ExtResource("1_town")]
 
@@ -26,5 +29,11 @@ target_path = NodePath("../Player")
 [node name="LocationManager" type="Node" parent="."]
 script = ExtResource("4_location")
 interior_scene = ExtResource("5_interior")
+
+[node name="MemoriaClient" type="Node" parent="."]
+script = ExtResource("8_memoria")
+
+[node name="MemoriaHealthTimer" type="Timer" parent="."]
+wait_time = 5.0
 
 [node name="HUD" parent="." instance=ExtResource("6_hud")]

@@ -86,6 +86,10 @@ func update_status(status: Dictionary) -> void:
 		set_paused(bool(status["paused"]))
 
 
+func set_memoria_status(status: String) -> void:
+	_memoria_status_label.text = "Memoria：%s" % status
+
+
 func set_paused(value: bool) -> void:
 	_paused = value
 	_pause_panel.visible = value
