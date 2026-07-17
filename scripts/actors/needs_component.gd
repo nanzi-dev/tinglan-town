@@ -71,6 +71,28 @@ func to_dict() -> Dictionary:
 	}
 
 
+func restore(data: Dictionary) -> bool:
+	var levels = data.get("levels", null)
+	var paused = data.get("paused", null)
+	if typeof(levels) != TYPE_DICTIONARY or typeof(paused) != TYPE_BOOL:
+		return false
+
+	var restored_levels := {}
+	for need_id in DEFAULT_LEVELS:
+		var value = levels.get(need_id, null)
+		if (
+			not _is_finite_number(value)
+			or float(value) < 0.0
+			or float(value) > 100.0
+		):
+			return false
+		restored_levels[need_id] = float(value)
+
+	_levels = restored_levels
+	_paused = paused
+	return true
+
+
 func _is_finite_number(value: Variant) -> bool:
 	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
 		return false

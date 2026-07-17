@@ -25,6 +25,7 @@ func _run() -> void:
 
 	var main := MAIN_SCENE.instantiate()
 	main.auto_check_memoria = false
+	main.enable_persistence = false
 	_capture_viewport.add_child(main)
 	await _wait_for_render()
 

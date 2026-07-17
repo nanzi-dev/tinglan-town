@@ -156,6 +156,38 @@ func test_transcript_keeps_npc_join_player_and_context_action_entries() -> void:
 	)
 
 
+func test_memoria_reply_uses_primary_participant_profile_and_updates_transcript() -> void:
+	var manager: Variant = _manager()
+	if manager == null:
+		return
+	var context: Dictionary = manager.start_npc_conversation(
+		["lin-xi"],
+		"临水茶馆",
+	)
+	var conversation_id: String = context["conversation_id"]
+	var profile: Dictionary = manager.get_primary_participant_profile(
+		conversation_id,
+	)
+
+	assert_eq(profile["character_id"], "lin-xi")
+	assert_eq(profile["name"], "林汐")
+	assert_eq(profile["role"], "茶馆掌柜")
+	assert_true(manager.append_npc_reply(
+		conversation_id,
+		"lin-xi",
+		"今天刚试了一壶春茶，你要尝尝吗？",
+		"memoria",
+	)["accepted"])
+
+	var transcript: Array = manager.get_transcript(conversation_id)
+	var reply: Dictionary = transcript[-1]
+	assert_eq(reply["entry_type"], "npc_dialogue")
+	assert_eq(reply["speaker_id"], "lin-xi")
+	assert_eq(reply["speaker_name"], "林汐")
+	assert_eq(reply["text"], "今天刚试了一壶春茶，你要尝尝吗？")
+	assert_eq(reply["source"], "memoria")
+
+
 func test_declined_join_keeps_player_from_speaking() -> void:
 	var manager: Variant = _manager()
 	if manager == null:

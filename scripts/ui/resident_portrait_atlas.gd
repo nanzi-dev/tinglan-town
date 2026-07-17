@@ -2,7 +2,7 @@ class_name ResidentPortraitAtlas
 extends RefCounted
 
 const PORTRAIT_SHEET := preload(
-	"res://assets/characters/resident_portraits.png",
+	"res://assets/characters/resident_portraits.png"
 )
 const CELL_SIZE := Vector2(400, 400)
 const COLUMNS := 5

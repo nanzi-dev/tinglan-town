@@ -47,6 +47,17 @@ class FakeHttpRequest:
 		)
 
 
+class FakeLifecycleMemoriaClient:
+	extends MemoriaClient
+
+	var flush_calls := 0
+
+
+	func flush_pending_events() -> Error:
+		flush_calls += 1
+		return OK
+
+
 func before_each() -> void:
 	_save_dir = "user://memoria_degraded_tests/%d" % Time.get_ticks_usec()
 
@@ -201,6 +212,7 @@ func test_main_scene_reports_memoria_connection_status_in_the_hud() -> void:
 		return
 	var main := packed.instantiate()
 	main.set("auto_check_memoria", false)
+	main.set("enable_persistence", false)
 	add_child_autoqfree(main)
 	await wait_process_frames(1)
 
@@ -217,6 +229,35 @@ func test_main_scene_reports_memoria_connection_status_in_the_hud() -> void:
 	assert_not_null(status_label)
 	if status_label != null:
 		assert_eq(status_label.text, "Memoria：可恢复错误")
+
+
+func test_main_flushes_pending_events_on_startup_and_reconnect() -> void:
+	var packed := load(MAIN_SCENE_PATH) as PackedScene
+	assert_not_null(packed)
+	if packed == null:
+		return
+	var main := packed.instantiate()
+	main.set("auto_check_memoria", false)
+	main.set("enable_persistence", false)
+	var original_client := main.get_node_or_null("MemoriaClient")
+	assert_not_null(original_client)
+	if original_client == null:
+		main.free()
+		return
+	main.remove_child(original_client)
+	original_client.free()
+	var client := FakeLifecycleMemoriaClient.new()
+	client.name = "MemoriaClient"
+	main.add_child(client)
+	add_child_autoqfree(main)
+	await wait_process_frames(1)
+
+	assert_eq(client.flush_calls, 1)
+
+	client.connection_status_changed.emit("connected")
+	await wait_process_frames(1)
+
+	assert_eq(client.flush_calls, 2)
 
 
 func _social_event(

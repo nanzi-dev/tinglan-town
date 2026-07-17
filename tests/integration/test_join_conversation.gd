@@ -5,6 +5,17 @@ const HUD_SCENE_PATH := "res://scenes/ui/hud.tscn"
 const NPC_SCENE_PATH := "res://scenes/actors/npc.tscn"
 
 
+class FakeDialogueClient:
+	extends MemoriaClient
+
+	var payloads: Array[Dictionary] = []
+
+
+	func request_dialogue_turn(payload: Dictionary) -> Error:
+		payloads.append(payload.duplicate(true))
+		return OK
+
+
 func test_player_can_join_speak_offer_help_and_expand_transcript() -> void:
 	var panel: Variant = await _spawn_scene(CONVERSATION_SCENE_PATH)
 	if panel == null:
@@ -44,6 +55,55 @@ func test_player_can_join_speak_offer_help_and_expand_transcript() -> void:
 	assert_true(transcript_text.contains("可以让我一起聊聊吗？"))
 	assert_true(transcript_text.contains("我能帮忙吗？"))
 	assert_true(transcript_text.contains("我可以帮忙。"))
+
+
+func test_player_text_requests_memoria_and_displays_the_reply() -> void:
+	var panel: Variant = await _spawn_scene(CONVERSATION_SCENE_PATH)
+	if panel == null:
+		return
+	var manager := ConversationManager.new()
+	var client := FakeDialogueClient.new()
+	add_child_autoqfree(client)
+	panel.configure_memoria_client(client)
+	var context := manager.start_npc_conversation(
+		["lin-xi"],
+		"临水茶馆",
+	)
+	var conversation_id: String = context["conversation_id"]
+	panel.open_conversation(manager, conversation_id)
+	assert_true(panel.request_join())
+
+	_line_edit(panel, "%PlayerTextEdit").text = "你好"
+	assert_true(panel.submit_current_text())
+	assert_eq(client.payloads.size(), 1)
+	assert_eq(client.payloads[0]["character"]["character_id"], "lin-xi")
+	assert_eq(client.payloads[0]["player_message"], "你好")
+	assert_false(_line_edit(panel, "%PlayerTextEdit").editable)
+	assert_true(
+		_label(panel, "%FeedbackLabel").text.contains("等待林汐回应"),
+	)
+
+	var payload: Dictionary = client.payloads[0]
+	client.dialogue_turn_completed.emit(
+		payload["request_id"],
+		{
+			"ok": true,
+			"request_id": payload["request_id"],
+			"tick_id": payload["tick_id"],
+			"character_id": "lin-xi",
+			"dialogue": "你好。今天想喝点什么？",
+			"source": "memoria",
+			"fallback_reason": null,
+		},
+	)
+	await wait_process_frames(1)
+
+	assert_true(_line_edit(panel, "%PlayerTextEdit").editable)
+	assert_true(
+		_all_control_text(panel.get_node("%DialogueList")).contains(
+			"林汐：你好。今天想喝点什么？",
+		),
+	)
 
 
 func test_hud_opens_conversation_as_the_only_overlay() -> void:

@@ -5,7 +5,7 @@ signal close_requested
 
 const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
 const RESIDENT_PORTRAIT_ATLAS := preload(
-	"res://scripts/ui/resident_portrait_atlas.gd",
+	"res://scripts/ui/resident_portrait_atlas.gd"
 )
 const PUBLIC_STAGE_LABELS := ["初识", "熟悉", "亲近", "戒备"]
 

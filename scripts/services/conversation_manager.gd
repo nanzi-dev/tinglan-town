@@ -60,6 +60,7 @@ const LOCAL_JOIN_RESPONSES := {
 var _conversations := {}
 var _next_conversation_sequence := 0
 var _character_names := {}
+var _characters := {}
 
 
 func _init() -> void:
@@ -68,6 +69,7 @@ func _init() -> void:
 		return
 	for character in repository.characters:
 		_character_names[character["character_id"]] = character["name"]
+		_characters[character["character_id"]] = character.duplicate(true)
 
 
 func start_npc_conversation(
@@ -240,6 +242,44 @@ func get_transcript(conversation_id: String) -> Array:
 		return []
 	var conversation: Dictionary = _conversations[conversation_id]
 	return (conversation["transcript"] as Array).duplicate(true)
+
+
+func get_primary_participant_profile(conversation_id: String) -> Dictionary:
+	if not _conversations.has(conversation_id):
+		return {}
+	var conversation: Dictionary = _conversations[conversation_id]
+	var participant_id := _primary_respondent_id(conversation)
+	if participant_id.is_empty() or not _characters.has(participant_id):
+		return {}
+	return (_characters[participant_id] as Dictionary).duplicate(true)
+
+
+func append_npc_reply(
+	conversation_id: String,
+	character_id: String,
+	text: String,
+	source: String,
+) -> Dictionary:
+	if not _conversations.has(conversation_id):
+		return {"accepted": false, "reason": "conversation_not_found"}
+	var conversation: Dictionary = _conversations[conversation_id]
+	if not (conversation["participant_ids"] as Array).has(character_id):
+		return {"accepted": false, "reason": "unknown_participant"}
+	var normalized_text := text.strip_edges()
+	if normalized_text.is_empty():
+		return {"accepted": false, "reason": "empty_text"}
+	_append_entry(conversation, {
+		"entry_type": "npc_dialogue",
+		"speaker_id": character_id,
+		"speaker_name": _speaker_name(character_id),
+		"text": normalized_text,
+		"source": source,
+	})
+	return {
+		"accepted": true,
+		"reason": "",
+		"text": normalized_text,
+	}
 
 
 func _append_entry(conversation: Dictionary, entry: Dictionary) -> void:

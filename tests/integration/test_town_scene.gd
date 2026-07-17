@@ -182,6 +182,7 @@ func _spawn_main() -> Node:
 	if scene == null:
 		return null
 	var main := scene.instantiate()
+	main.set("enable_persistence", false)
 	add_child_autoqfree(main)
 	await wait_process_frames(2)
 	await wait_physics_frames(2)

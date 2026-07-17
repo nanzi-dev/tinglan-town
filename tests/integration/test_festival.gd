@@ -90,6 +90,21 @@ func test_low_medium_and_high_preparation_change_display_but_all_complete() -> v
 			result["completed_event"]["event_type"],
 			"festival_completed",
 		)
+		var event_keys: Array = result["completed_event"].keys()
+		event_keys.sort()
+		assert_eq(event_keys, [
+			"event_id",
+			"event_scope",
+			"event_type",
+			"participants",
+			"source_action_id",
+			"structured_result",
+			"world_time",
+		])
+		assert_eq(
+			result["completed_event"]["event_scope"],
+			"local_domain",
+		)
 		assert_eq(
 			result["completed_event"]["structured_result"]["branch_id"],
 			case["branch_id"],

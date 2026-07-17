@@ -75,8 +75,7 @@ func trigger_if_due(
 	}
 	var completed_event := {
 		"event_id": event_id,
-		"request_id": "%s:request" % event_id,
-		"tick_id": "%s:%d:%d" % [season, day, minute],
+		"event_scope": "local_domain",
 		"event_type": "festival_completed",
 		"participants": ["player"],
 		"world_time": {

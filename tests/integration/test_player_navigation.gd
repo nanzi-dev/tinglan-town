@@ -15,6 +15,7 @@ func before_each() -> void:
 		return
 
 	_main = (load(MAIN_SCENE_PATH) as PackedScene).instantiate()
+	_main.set("enable_persistence", false)
 	add_child_autoqfree(_main)
 	_town = _main.get_node("Town")
 	_player = _main.get_node("Player")

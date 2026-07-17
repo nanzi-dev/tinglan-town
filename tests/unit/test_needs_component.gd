@@ -37,6 +37,24 @@ func test_one_offscreen_tick_matches_three_logic_ticks() -> void:
 		)
 
 
+func test_serialized_needs_restore_levels_and_pause_state() -> void:
+	var source := _new_needs_component()
+	var restored := _new_needs_component()
+	if source == null or restored == null:
+		return
+	source.advance_minutes(75)
+	source.set_paused(true)
+	var snapshot: Dictionary = source.to_dict()
+
+	assert_true(restored.has_method("restore"))
+	if not restored.has_method("restore"):
+		return
+	assert_true(restored.restore(snapshot))
+
+	assert_eq(restored.get_levels(), snapshot["levels"])
+	assert_true(restored.is_paused())
+
+
 func _new_needs_component() -> Node:
 	var script_exists := ResourceLoader.exists(NEEDS_SCRIPT_PATH)
 	assert_true(script_exists)

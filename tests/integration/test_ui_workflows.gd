@@ -193,6 +193,8 @@ func _spawn_scene(path: String) -> Variant:
 	if packed == null:
 		return null
 	var instance := packed.instantiate()
+	if path == MAIN_SCENE_PATH:
+		instance.set("enable_persistence", false)
 	add_child_autoqfree(instance)
 	await wait_process_frames(1)
 	return instance

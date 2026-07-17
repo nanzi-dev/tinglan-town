@@ -98,6 +98,61 @@ func set_memoria_status(status: String) -> void:
 	_memoria_status_label.text = "Memoria：%s" % status
 
 
+func set_world_time(day: int, minute_of_day: int) -> void:
+	update_status({
+		"season": "春季",
+		"day": day,
+		"minute_of_day": minute_of_day,
+		"weather": _weather_label.text.trim_prefix("天气："),
+		"memoria_status": _memoria_status_label.text.trim_prefix("Memoria："),
+		"interaction_prompt": _interaction_prompt.text,
+		"task_summary": _task_summary_label.text.trim_prefix("当前任务："),
+	})
+
+
+func set_interaction_prompt(prompt: String) -> void:
+	_interaction_prompt.text = prompt
+
+
+func configure_services(
+	task_board: TaskBoard,
+	relationship_ledger: RelationshipLedger,
+	conversation_manager: ConversationManager,
+) -> bool:
+	if (
+		task_board == null
+		or relationship_ledger == null
+		or conversation_manager == null
+	):
+		return false
+	_task_board = task_board
+	_relationship_ledger = relationship_ledger
+	_conversation_manager = conversation_manager
+	if is_node_ready():
+		_task_board_panel.set_task_board(_task_board)
+		_load_initial_relationship_profiles()
+	return true
+
+
+func configure_memoria_client(client: MemoriaClient) -> bool:
+	if client == null:
+		return false
+	_conversation_panel.configure_memoria_client(client)
+	return true
+
+
+func get_task_board() -> TaskBoard:
+	return _task_board
+
+
+func get_relationship_ledger() -> RelationshipLedger:
+	return _relationship_ledger
+
+
+func get_conversation_manager() -> ConversationManager:
+	return _conversation_manager
+
+
 func set_paused(value: bool) -> void:
 	_paused = value
 	_pause_backdrop.visible = value

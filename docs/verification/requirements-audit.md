@@ -18,11 +18,11 @@
 
 | 原始要求 | 实现 | 证据 | 状态 |
 | --- | --- | --- | --- |
-| 新增版本化 `/api/v1/game` 路由，不改现有 Web 前端 | Memoria `src/memoria/api/game.py`、`src/memoria/main.py` | `tests/test_game_api.py` 覆盖路由注册、方法和未鉴权拒绝；Memoria 目标回归 102 项通过 | 通过 |
+| 新增版本化 `/api/v1/game` 路由，不改现有 Web 前端 | Memoria `src/memoria/api/game.py`、`src/memoria/main.py` | `tests/test_game_api.py` 覆盖路由注册、方法和未鉴权拒绝；Memoria 目标回归 104 项通过 | 通过 |
 | 绑定 Godot `world_id/save_id` 到用户与 `story_id` | Memoria `game.py` 的 WorldBinding 模型与路由，`core/game_service.py`、`db/repository.py` | `test_world_binding_is_idempotent_and_requires_next_revision` 及 API 创建、读取、冲突测试 | 通过 |
 | 批量智能体决策只能引用 Godot 合法候选动作 | Memoria `game.py` 的 AgentSnapshot/AgentDecision；`game_service.py` 的合法候选校验与本地回退 | Memoria 服务/API 测试；Godot `scripts/actors/agent_controller.gd`、`tests/unit/test_agent_controller.gd` | 通过 |
 | 幂等批量社会事件投影到记忆、关系、事件和故事 | Memoria `game_service.py`、`repository.py`；Godot `pending_event_queue.gd` | Memoria 重试/冲突测试；`test_memoria_degraded_mode.gd` 和端到端恢复同步 | 通过 |
-| 公告板任务响应支持接取、协商、拒绝或退出 | Memoria BoardTask 契约、`respond_to_board_task` | `tests/test_game_service.py` 与 `tests/test_game_api.py` 的任务响应枚举和回退断言 | 通过 |
+| 公告板任务响应支持接取、协商、拒绝或退出 | Memoria BoardTask 契约、`respond_to_board_task`；合法值为 `accepted/counteroffer/declined/withdrawn` | `tests/test_game_service.py` 与 `tests/test_game_api.py` 覆盖四种响应、非法值回退，以及已分配任务的退出流程 | 通过 |
 | 所有接口携带 `request_id/tick_id`，模型不能改写世界 | Memoria Pydantic 契约；Godot `memoria_client.gd` 丢弃服务端世界变更字段 | Memoria 非法请求/响应测试；`test_valid_decision_strips_server_world_mutations` | 通过 |
 
 所有 `/api/v1/game` 路由使用 `require_current_user_id`。Godot 从
@@ -38,8 +38,8 @@
 | 近场实时、离屏粗时间片；普通行为不调用模型 | `simulation_scheduler.gd` 的 10/30 分钟 tick；`game_state.gd`、`utility_evaluator.gd` | `test_simulation_scheduler.gd`、`test_needs_component.gd`、十四日模拟 | 通过 |
 | 重要社交选择每日 30 至 60 次批量预算 | `simulation_scheduler.gd` 的确定性每日预算 | 单元测试和 `test_fourteen_days.gd` 对每一天断言 30..60 | 通过 |
 | 模型失败执行本地最高效用合法动作，HTTP 不阻塞主线程 | `agent_controller.gd`、异步 `memoria_client.gd`，重试为 0.5/1/2/4 秒 | AgentController、MemoriaClient 和降级模式测试 | 通过 |
-| 检查点、幂等事件日志、崩溃恢复 | `save_coordinator.gd`、`domain_event_log.gd` | `test_save_coordinator.gd`、`test_crash_recovery.gd`、端到端恢复断言 | 通过 |
-| 离线补算最多三个游戏日并产生“镇上近况”结构 | `SaveCoordinator.calculate_catchup` | `test_offline_catchup_is_capped_at_three_days`；端到端模拟离线五天只补三天 | 通过 |
+| 检查点、幂等事件日志、崩溃恢复 | `save_coordinator.gd`、`domain_event_log.gd`；`main.gd` 在主场景入树前配置持久化并在退出时保存；`town_runtime.gd`、`resident_actor.gd` 和 `needs_component.gd` 恢复时钟、调度器、逻辑 tick、居民需求与日程 | `test_save_coordinator.gd`、`test_crash_recovery.gd`；`test_town_runtime.gd` 从真实主场景退出生成检查点并按已保存状态恢复 | 通过 |
+| 离线补算最多三个游戏日并产生“镇上近况”结构 | `SaveCoordinator.calculate_catchup` 计算上限和摘要；`TownRuntime` 通过真实 10 分钟逻辑 tick 应用补算并推进日程、需求和调度器 | `test_offline_catchup_is_capped_at_three_days`；`test_town_runtime.gd` 验证 120 分钟补算及离线超过三日时严格封顶 3 日 | 通过 |
 
 十四日确定性证据：
 
@@ -71,13 +71,14 @@
 | 旁听并加入群聊 | `tests/e2e/test_spring_playthrough.gd`、`test_join_conversation.gd` | 通过 |
 | 玩家发布任务，NPC 接取、完成并只领取一次奖励 | `TaskBoard` 状态机和端到端重复完成断言 | 通过 |
 | 听雨桥收集、投票、施工、落成 | `community_project.gd`、`test_community_project.gd`、端到端五阶段推进 | 通过 |
-| 春季第十二日 18:00 上巳水灯会 | `festival_manager.gd`、`festival.json` | 三种准备度分支测试和端到端高准备度分支 | 通过 |
-| 保存、强制退出、恢复后状态一致 | `save_coordinator.gd`、崩溃恢复集成测试和端到端恢复 | 通过 |
+| 春季第十二日 18:00 上巳水灯会 | `festival_manager.gd`、`festival.json`；完成事件明确标记为 `event_scope: local_domain`，不伪装成 Memoria `SocialEvent` | `test_festival.gd` 验证触发时刻、三种准备度分支和本地域事件契约；端到端验证高准备度分支 | 通过 |
+| 保存、强制退出、恢复后状态一致 | `save_coordinator.gd`、`main.gd`、`town_runtime.gd`；主场景退出自动保存，重启恢复时钟、调度器、居民需求和日程后再应用离线补算 | `test_town_runtime.gd`、崩溃恢复集成测试和端到端恢复 | 通过 |
 | 重启不重复奖励、记忆、任务或项目事件 | 稳定事件 ID、按消费者去重、恢复高水位 | `test_crash_recovery.gd` 和端到端 effect count/event ID 断言通过 |
-| Memoria 不可用时本地继续，恢复后同步 | `memoria_client.gd`、`pending_event_queue.gd` | `test_memoria_degraded_mode.gd` 和端到端同步载荷断言通过 |
+| Memoria 不可用时本地继续，恢复后同步 | `memoria_client.gd`、`pending_event_queue.gd`；主场景启动时刷新待同步事件，连接状态转为 `connected` 后延迟刷新并继续逐批排空 | `test_memoria_degraded_mode.gd` 验证异步本地回退、磁盘队列恢复、启动刷新和重连刷新；端到端同步载荷断言通过 |
 
-端到端测试还验证了固定种子十四日模拟、关系事件幂等、离线五天只补算三天，
-以及 Linux/Windows 导出预设和脚本存在。
+端到端测试还验证了固定种子十四日模拟、关系事件幂等，以及 Linux/Windows
+导出预设和脚本存在。真实主场景的退出存档、恢复和三日补算由
+`test_town_runtime.gd` 独立覆盖。
 
 ## 5. 视觉证据
 
@@ -130,10 +131,10 @@ bash tools/test.sh
 2026-07-17 结果：
 
 ```text
-Scripts: 28
-Tests: 215
-Passing Tests: 215
-Asserts: 6098
+Scripts: 29
+Tests: 225
+Passing Tests: 225
+Asserts: 6218
 Exit: 0
 ```
 
@@ -141,13 +142,8 @@ Exit: 0
 
 ### Memoria 契约与相关回归
 
-当前系统 Python 缺少仓库已声明的 `python-multipart==0.0.12`，因此使用临时
-目录补齐该依赖，不修改仓库或用户环境：
-
 ```bash
-deps_dir="$(mktemp -d /tmp/memoria-test-deps.XXXXXX)"
-python3 -m pip install --target "$deps_dir" python-multipart==0.0.12
-PYTHONPATH="${deps_dir}:src" pytest \
+PYTHONPATH=src /home/nanzi/PY3/Memoria/.venv/bin/python -m pytest \
   tests/test_game_service.py \
   tests/test_game_api.py \
   tests/test_repository.py -q
@@ -156,7 +152,7 @@ PYTHONPATH="${deps_dir}:src" pytest \
 结果：
 
 ```text
-102 passed in 3.66s
+104 passed in 8.60s
 Exit: 0
 ```
 
@@ -177,8 +173,8 @@ build/windows/tides-of-tinglan.exe
 导出日志无 `ERROR` 或 `WARNING`。产物检查结果：
 
 ```text
-Linux:   ELF 64-bit x86-64, 79,331,368 bytes
-Windows: PE32+ GUI x86-64, 114,932,472 bytes
+Linux:   ELF 64-bit x86-64, 79,350,240 bytes
+Windows: PE32+ GUI x86-64, 114,951,344 bytes
 ```
 
 ### Linux 构建冒烟

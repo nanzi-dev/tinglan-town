@@ -5,7 +5,7 @@ signal close_requested
 
 const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
 const RESIDENT_PORTRAIT_ATLAS := preload(
-	"res://scripts/ui/resident_portrait_atlas.gd",
+	"res://scripts/ui/resident_portrait_atlas.gd"
 )
 
 @onready var _title_label: Label = %ConversationTitleLabel
@@ -23,9 +23,13 @@ const RESIDENT_PORTRAIT_ATLAS := preload(
 @onready var _close_button: Button = %CloseButton
 
 var _manager: ConversationManager
+var _memoria_client: MemoriaClient
 var _active_conversation_id := ""
 var _transcript_expanded := false
 var _portrait_atlas := RESIDENT_PORTRAIT_ATLAS.new()
+var _pending_request_id := ""
+var _pending_conversation_id := ""
+var _pending_character_id := ""
 
 
 func _ready() -> void:
@@ -60,6 +64,28 @@ func get_active_conversation_id() -> String:
 	return _active_conversation_id
 
 
+func configure_memoria_client(client: MemoriaClient) -> void:
+	if (
+		_memoria_client != null
+		and _memoria_client.dialogue_turn_completed.is_connected(
+			_on_dialogue_turn_completed,
+		)
+	):
+		_memoria_client.dialogue_turn_completed.disconnect(
+			_on_dialogue_turn_completed,
+		)
+	_memoria_client = client
+	if (
+		_memoria_client != null
+		and not _memoria_client.dialogue_turn_completed.is_connected(
+			_on_dialogue_turn_completed,
+		)
+	):
+		_memoria_client.dialogue_turn_completed.connect(
+			_on_dialogue_turn_completed,
+		)
+
+
 func request_join() -> bool:
 	if _manager == null or _active_conversation_id.is_empty():
 		return false
@@ -82,18 +108,56 @@ func request_join() -> bool:
 
 
 func submit_current_text() -> bool:
-	if _manager == null or _active_conversation_id.is_empty():
+	if (
+		_manager == null
+		or _active_conversation_id.is_empty()
+		or not _pending_request_id.is_empty()
+	):
 		return false
+	var player_message := _player_text_edit.text.strip_edges()
+	var context := _manager.get_context(_active_conversation_id)
+	var character := _dialogue_character(
+		_manager.get_primary_participant_profile(
+			_active_conversation_id,
+		),
+	)
+	var history := _dialogue_history(
+		_manager.get_transcript(_active_conversation_id),
+	)
 	var result := _manager.submit_player_text(
 		_active_conversation_id,
-		_player_text_edit.text,
+		player_message,
 	)
 	if not result.get("accepted", false):
 		_feedback_label.text = _reason_text(result.get("reason", ""))
 		return false
 	_player_text_edit.clear()
-	_feedback_label.text = ""
 	_refresh_controls()
+	if _memoria_client == null:
+		_feedback_label.text = "Memoria 未配置，消息已记录。"
+		return true
+	if character.is_empty():
+		_feedback_label.text = "居民资料不完整，暂时无法回应。"
+		return true
+
+	_pending_request_id = _new_request_id()
+	_pending_conversation_id = _active_conversation_id
+	_pending_character_id = character["character_id"]
+	_feedback_label.text = "等待%s回应…" % character["name"]
+	_set_composer_enabled(false)
+	var error := _memoria_client.request_dialogue_turn({
+		"request_id": _pending_request_id,
+		"tick_id": Time.get_ticks_msec(),
+		"location_name": str(context.get("location_name", "听澜镇")),
+		"character": character,
+		"history": history,
+		"player_message": player_message,
+	})
+	if error != OK:
+		_clear_pending_dialogue()
+		_feedback_label.text = "消息未能发送到 Memoria，请重试。"
+		_refresh_controls()
+		return false
 	_player_text_edit.grab_focus()
 	return true
 
@@ -149,7 +213,10 @@ func _refresh_controls() -> void:
 	var join_status := str(context.get("join_status", "listening"))
 	_state_label.text = _state_text(join_status)
 	_join_button.visible = join_status == "listening"
-	_set_composer_enabled(join_status == "accepted")
+	_set_composer_enabled(
+		join_status == "accepted"
+		and _pending_request_id.is_empty()
+	)
 	_refresh_dialogue()
 	if _transcript_expanded:
 		_refresh_transcript()
@@ -231,6 +298,98 @@ func _set_composer_enabled(enabled: bool) -> void:
 	_player_text_edit.editable = enabled
 	_submit_button.disabled = not enabled
 	_offer_help_button.disabled = not enabled
+
+
+func _on_dialogue_turn_completed(
+	request_id: String,
+	result: Dictionary,
+) -> void:
+	if request_id != _pending_request_id:
+		return
+	var conversation_id := _pending_conversation_id
+	var character_id := _pending_character_id
+	_clear_pending_dialogue()
+	if (
+		not result.get("ok", false)
+		or str(result.get("character_id", "")) != character_id
+	):
+		_feedback_label.text = "Memoria 暂时没有回应，请重试。"
+		_refresh_controls()
+		return
+	var appended := _manager.append_npc_reply(
+		conversation_id,
+		character_id,
+		str(result.get("dialogue", "")),
+		str(result.get("source", "memoria")),
+	)
+	if not appended.get("accepted", false):
+		_feedback_label.text = "回复未能加入当前对话。"
+	else:
+		_feedback_label.text = (
+			"已使用本地回复。"
+			if result.get("source", "") == "local_fallback"
+			else ""
+		)
+	_refresh_controls()
+	if visible and conversation_id == _active_conversation_id:
+		_player_text_edit.grab_focus()
+
+
+func _clear_pending_dialogue() -> void:
+	_pending_request_id = ""
+	_pending_conversation_id = ""
+	_pending_character_id = ""
+
+
+func _dialogue_character(profile: Dictionary) -> Dictionary:
+	if profile.is_empty():
+		return {}
+	return {
+		"character_id": profile.get("character_id", ""),
+		"name": profile.get("name", ""),
+		"age": profile.get("age", 0),
+		"role": profile.get("role", ""),
+		"traits": profile.get("traits", []).duplicate(),
+		"personal_request": (
+			profile.get("personal_request", {}) as Dictionary
+		).duplicate(true),
+	}
+
+
+func _dialogue_history(transcript: Array) -> Array:
+	var history := []
+	var first_index := maxi(transcript.size() - 20, 0)
+	for index in range(first_index, transcript.size()):
+		var entry: Dictionary = transcript[index]
+		var speaker_id := str(entry.get("speaker_id", ""))
+		var speaker_name := str(entry.get("speaker_name", ""))
+		var text := str(entry.get("text", "")).strip_edges()
+		if (
+			speaker_id.is_empty()
+			or speaker_name.is_empty()
+			or text.is_empty()
+		):
+			continue
+		history.append({
+			"speaker_id": speaker_id,
+			"speaker_name": speaker_name,
+			"text": text,
+		})
+	return history
+
+
+func _new_request_id() -> String:
+	var bytes := Crypto.new().generate_random_bytes(16)
+	bytes[6] = (bytes[6] & 0x0f) | 0x40
+	bytes[8] = (bytes[8] & 0x3f) | 0x80
+	var value := bytes.hex_encode()
+	return "%s-%s-%s-%s-%s" % [
+		value.substr(0, 8),
+		value.substr(8, 4),
+		value.substr(12, 4),
+		value.substr(16, 4),
+		value.substr(20, 12),
+	]
 
 
 func _state_text(join_status: String) -> String:
