@@ -9,8 +9,12 @@ const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
 @onready var _memoria_status_label: Label = %MemoriaStatusLabel
 @onready var _interaction_prompt: Label = %InteractionPrompt
 @onready var _task_summary_label: Label = %TaskSummaryLabel
+@onready var _title_screen: Control = %TitleScreen
+@onready var _start_button: Button = %StartButton
+@onready var _pause_backdrop: TextureRect = %PauseBackdrop
 @onready var _pause_panel: PanelContainer = %PausePanel
 @onready var _pause_banner: Label = %PauseBanner
+@onready var _resume_button: Button = %ResumeButton
 @onready var _task_board_panel: TaskBoardPanel = %TaskBoardPanel
 @onready var _relationship_panel: RelationshipPanel = %RelationshipPanel
 @onready var _inventory_panel: InventoryPanel = %InventoryPanel
@@ -35,6 +39,8 @@ func _ready() -> void:
 	_task_button.pressed.connect(_show_task_board)
 	_relationship_button.pressed.connect(_show_relationships)
 	_inventory_button.pressed.connect(_show_inventory)
+	_start_button.pressed.connect(start_game)
+	_resume_button.pressed.connect(resume_game)
 	_task_board_panel.close_requested.connect(_hide_overlays)
 	_relationship_panel.close_requested.connect(_hide_overlays)
 	_inventory_panel.close_requested.connect(_hide_overlays)
@@ -52,6 +58,8 @@ func _ready() -> void:
 	set_inventory([])
 	_load_initial_relationship_profiles()
 	_hide_overlays()
+	set_paused(false)
+	_start_button.grab_focus()
 
 
 func _exit_tree() -> void:
@@ -92,9 +100,30 @@ func set_memoria_status(status: String) -> void:
 
 func set_paused(value: bool) -> void:
 	_paused = value
+	_pause_backdrop.visible = value
 	_pause_panel.visible = value
 	_pause_banner.visible = value
 	_pause_banner.text = "游戏已暂停"
+	if value:
+		_resume_button.grab_focus()
+
+
+func show_title_screen() -> void:
+	_hide_overlays()
+	set_paused(false)
+	_title_screen.visible = true
+	_set_tree_paused(true)
+	_start_button.call_deferred("grab_focus")
+
+
+func start_game() -> void:
+	_title_screen.visible = false
+	set_paused(false)
+	_set_tree_paused(false)
+
+
+func resume_game() -> void:
+	_set_game_paused(false)
 
 
 func set_inventory(items: Array) -> void:
@@ -134,10 +163,14 @@ func start_npc_conversation(
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause_game"):
-		_paused = not _paused
-		set_paused(_paused)
-		get_tree().paused = _paused
-		_owns_tree_pause = _paused
+		if _title_screen.visible:
+			get_viewport().set_input_as_handled()
+			return
+		if _has_visible_overlay():
+			_hide_overlays()
+			get_viewport().set_input_as_handled()
+			return
+		_set_game_paused(not _paused)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("open_tasks"):
 		_show_task_board()
@@ -179,6 +212,30 @@ func _hide_overlays() -> void:
 	_conversation_panel.visible = false
 
 
+func _has_visible_overlay() -> bool:
+	for overlay in [
+		_task_board_panel,
+		_relationship_panel,
+		_inventory_panel,
+		_conversation_panel,
+	]:
+		if overlay.visible:
+			return true
+	return false
+
+
+func _set_game_paused(value: bool) -> void:
+	set_paused(value)
+	_set_tree_paused(value)
+
+
+func _set_tree_paused(value: bool) -> void:
+	if get_tree() == null:
+		return
+	get_tree().paused = value
+	_owns_tree_pause = value
+
+
 func _on_task_published(task: Dictionary) -> void:
 	_task_summary_label.text = "当前任务：%s" % task["description"]
 
@@ -191,6 +248,7 @@ func _load_initial_relationship_profiles() -> void:
 	for character in repository.characters:
 		var character_id: String = character["character_id"]
 		profiles.append({
+			"character_id": character_id,
 			"name": character.get("name", character_id),
 			"public_view": _relationship_ledger.public_view(character_id),
 		})

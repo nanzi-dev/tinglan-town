@@ -5,6 +5,7 @@ signal close_requested
 signal task_published(task: Dictionary)
 
 const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
+const COMPACT_LAYOUT_WIDTH := 1100.0
 const TASK_TYPES := [
 	{"id": "gather", "label": "采集", "objective_type": "collect_item"},
 	{"id": "delivery", "label": "递送", "objective_type": "deliver_item"},
@@ -45,6 +46,16 @@ const COMPLETION_RULES := [
 @onready var _empty_task_label: Label = %EmptyTaskLabel
 @onready var _submit_button: Button = %SubmitButton
 @onready var _close_button: Button = %CloseButton
+@onready var _content: BoxContainer = $Surface/Margin/Main/Content
+@onready var _form_scroll: ScrollContainer = (
+	$Surface/Margin/Main/Content/FormScroll
+)
+@onready var _column_separator: VSeparator = (
+	$Surface/Margin/Main/Content/ColumnSeparator
+)
+@onready var _published: VBoxContainer = (
+	$Surface/Margin/Main/Content/Published
+)
 
 var _board := TaskBoard.new()
 var _field_errors := {}
@@ -58,6 +69,8 @@ func _ready() -> void:
 	_populate_option(_completion_rule_option, COMPLETION_RULES)
 	_submit_button.pressed.connect(submit_current_form)
 	_close_button.pressed.connect(_on_close_pressed)
+	resized.connect(_update_responsive_layout)
+	_update_responsive_layout()
 	_clear_errors()
 
 
@@ -127,6 +140,19 @@ func get_last_submitted_task() -> Dictionary:
 
 func get_field_errors() -> Dictionary:
 	return _field_errors.duplicate()
+
+
+func _update_responsive_layout() -> void:
+	var compact := size.x < COMPACT_LAYOUT_WIDTH
+	_content.vertical = compact
+	_form_scroll.custom_minimum_size.x = 0.0 if compact else 650.0
+	_published.size_flags_vertical = (
+		Control.SIZE_FILL if compact else Control.SIZE_EXPAND_FILL
+	)
+	_published.custom_minimum_size = (
+		Vector2.ZERO if compact else Vector2(330.0, 0.0)
+	)
+	_column_separator.visible = not compact
 
 
 func _populate_option(option: OptionButton, options: Array) -> void:
@@ -269,7 +295,10 @@ func _clear_errors() -> void:
 		_form_error_label,
 	]:
 		label.text = ""
-		label.visible = false
+		label.visible = label in [
+			_target_error_label,
+			_location_error_label,
+		]
 
 
 func _set_field_error(field_id: String, message: String) -> void:

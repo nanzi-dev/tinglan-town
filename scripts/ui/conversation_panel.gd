@@ -4,9 +4,13 @@ extends Control
 signal close_requested
 
 const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
+const RESIDENT_PORTRAIT_ATLAS := preload(
+	"res://scripts/ui/resident_portrait_atlas.gd",
+)
 
 @onready var _title_label: Label = %ConversationTitleLabel
 @onready var _state_label: Label = %ConversationStateLabel
+@onready var _participant_portraits: HBoxContainer = %ParticipantPortraits
 @onready var _dialogue_list: VBoxContainer = %DialogueList
 @onready var _transcript_panel: Control = %TranscriptPanel
 @onready var _transcript_list: VBoxContainer = %TranscriptList
@@ -21,6 +25,7 @@ const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
 var _manager: ConversationManager
 var _active_conversation_id := ""
 var _transcript_expanded := false
+var _portrait_atlas := RESIDENT_PORTRAIT_ATLAS.new()
 
 
 func _ready() -> void:
@@ -131,10 +136,12 @@ func _refresh_controls() -> void:
 		_state_label.text = "尚未开始"
 		_join_button.visible = false
 		_set_composer_enabled(false)
+		_clear_children(_participant_portraits)
 		_clear_children(_dialogue_list)
 		_clear_children(_transcript_list)
 		return
 
+	_refresh_participant_portraits(context)
 	_title_label.text = "%s · %s" % [
 		str(context.get("location_name", "镇上")),
 		"、".join(_participant_names(context)),
@@ -146,6 +153,29 @@ func _refresh_controls() -> void:
 	_refresh_dialogue()
 	if _transcript_expanded:
 		_refresh_transcript()
+
+
+func _refresh_participant_portraits(context: Dictionary) -> void:
+	_clear_children(_participant_portraits)
+	var participant_ids: Array = context.get("participant_ids", [])
+	var participant_names := _participant_names(context)
+	for index in range(participant_ids.size()):
+		var portrait := _portrait_atlas.portrait_for(
+			str(participant_ids[index]),
+		)
+		if portrait == null:
+			continue
+		var texture_rect := TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(80, 80)
+		texture_rect.texture = portrait
+		texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		texture_rect.stretch_mode = (
+			TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		)
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if index < participant_names.size():
+			texture_rect.tooltip_text = participant_names[index]
+		_participant_portraits.add_child(texture_rect)
 
 
 func _refresh_dialogue() -> void:

@@ -79,6 +79,13 @@ text = "关闭"
 [node name="HeaderSeparator" type="HSeparator" parent="Surface/Margin/Main"]
 layout_mode = 2
 
+[node name="ParticipantPortraits" type="HBoxContainer" parent="Surface/Margin/Main"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
 [node name="Body" type="HBoxContainer" parent="Surface/Margin/Main"]
 layout_mode = 2
 size_flags_vertical = 3

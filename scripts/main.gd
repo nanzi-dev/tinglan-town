@@ -47,6 +47,7 @@ func _ready() -> void:
 	if auto_check_memoria:
 		_memoria_health_timer.start()
 		_check_memoria_health()
+	_hud.show_title_screen()
 
 
 func _check_memoria_health() -> void:

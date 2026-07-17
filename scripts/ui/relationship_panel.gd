@@ -4,15 +4,20 @@ extends Control
 signal close_requested
 
 const THEME_FACTORY := preload("res://scripts/ui/theme_factory.gd")
+const RESIDENT_PORTRAIT_ATLAS := preload(
+	"res://scripts/ui/resident_portrait_atlas.gd",
+)
 const PUBLIC_STAGE_LABELS := ["初识", "熟悉", "亲近", "戒备"]
 
 @onready var _resident_list: ItemList = %ResidentList
+@onready var _resident_portrait: TextureRect = %ResidentPortrait
 @onready var _resident_name_label: Label = %ResidentNameLabel
 @onready var _stage_label: Label = %StageLabel
 @onready var _reason_list: VBoxContainer = %ReasonList
 @onready var _close_button: Button = %CloseButton
 
 var _profiles: Array[Dictionary] = []
+var _portrait_atlas := RESIDENT_PORTRAIT_ATLAS.new()
 
 
 func _ready() -> void:
@@ -41,17 +46,27 @@ func set_profiles(profiles: Array) -> void:
 		):
 			continue
 		_profiles.append({
+			"character_id": str(profile.get("character_id", "")),
 			"name": resident_name,
 			"public_view": public_view.duplicate(true),
 		})
 		_resident_list.add_item(resident_name)
 	if not _profiles.is_empty():
 		_resident_list.select(0)
-		show_profile(_profiles[0]["name"], _profiles[0]["public_view"])
+		show_profile(
+			_profiles[0]["name"],
+			_profiles[0]["public_view"],
+			_profiles[0]["character_id"],
+		)
 
 
-func show_profile(resident_name: String, public_view: Dictionary) -> void:
+func show_profile(
+	resident_name: String,
+	public_view: Dictionary,
+	character_id := "",
+) -> void:
 	_resident_name_label.text = resident_name
+	_resident_portrait.texture = _portrait_atlas.portrait_for(character_id)
 	var stage_label := str(public_view.get("label", "初识"))
 	if stage_label not in PUBLIC_STAGE_LABELS:
 		stage_label = "初识"
@@ -84,7 +99,11 @@ func show_profile(resident_name: String, public_view: Dictionary) -> void:
 func _on_resident_selected(index: int) -> void:
 	if index < 0 or index >= _profiles.size():
 		return
-	show_profile(_profiles[index]["name"], _profiles[index]["public_view"])
+	show_profile(
+		_profiles[index]["name"],
+		_profiles[index]["public_view"],
+		_profiles[index]["character_id"],
+	)
 
 
 func _on_close_pressed() -> void:

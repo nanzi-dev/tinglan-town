@@ -19,6 +19,7 @@ func before_each() -> void:
 	_town = _main.get_node("Town")
 	_player = _main.get_node("Player")
 	_camera = _main.get_node("IsometricCamera")
+	(_main.get_node("HUD") as TownHud).start_game()
 	_player.global_position = Vector3(-12.0, 0.5, 0.0)
 	await wait_process_frames(2)
 	await wait_physics_frames(2)
